@@ -15,17 +15,19 @@
 
 ## Overview
 
-The Unity Splash Screen Remover is a Command-Line Interface (CLI) tool designed to remove the Unity splash screen logo from Unity-built games. The tool is an implementation of the guide available at [https://github.com/kiraio-moe/remove-unity-splash-screen](https://github.com/kiraio-moe/remove-unity-splash-screen). By utilizing this tool, you can easily remove the Unity splash screen from your games.
+The Unity Splash Screen Remover is a Command-Line Interface (CLI) tool designed to remove the Unity splash screen logo from Unity-built games.
+
+The tool is an implementation of the guide available at [https://github.com/kiraio-moe/remove-unity-splash-screen](https://github.com/kiraio-moe/remove-unity-splash-screen). By utilizing this tool, you can easily remove Unity splash screen logo from your games and keep your own logo displayed.
 
 ## Requirements
 
-- [.NET 6.0 SDK](https://dotnet.microsoft.com/download/dotnet/6.0 ".NET 6.0 SDK")
+- [.NET 6.0 SDK](https://dotnet.microsoft.com/download/dotnet/6.0 ".NET 6.0 SDK") or [.NET 7.0 SDK](https://dotnet.microsoft.com/download/dotnet/7.0 ".NET 7.0 SDK")
 
 ## Usage
 
 To use the tool, follow the steps below:
 
-1. Download the Unity Splash Screen Remover from [Releases](https://github.com/kiraio-moe/USSR/releases).
+1. Download the Unity Splash Screen Remover from [Releases](https://github.com/kiraio-moe/USSR/releases) page.
 2. Drag and drop your game executable to `USSR.exe` or execute USSR as follow:
 
     ```bash
@@ -36,19 +38,22 @@ To use the tool, follow the steps below:
 
 Unity Splash Screen Remover currently supports the following platforms:
 
-- PC, Mac, Linux Standalone (Default Compression)
+- PC, Mac, Linux Standalone (Support Default, LZ4 & LZ4HC Compression)
 
 ## Known Supported Unity Versions
 
-- 2020
-- 2019
+- 2019 ~ 2022
 
 For other versions, please test it yourself and let me know!
 
 ## Todo List
 
-- Support WebGL platform.
-- Support compressed build.
+- Add support for WebGL platform
+  - Decompress WebGL.data ✔️
+  - Compress back to WebGL.data (WIP)
+  - Support Brotli compression ✔️
+  - Support GZip compression ✔️
+- ~~Support compressed build~~ ✔️
 
 ## Credits
 

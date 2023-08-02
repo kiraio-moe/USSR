@@ -1,149 +1,198 @@
 ﻿using System.Reflection;
 using AssetsTools.NET;
 using AssetsTools.NET.Extra;
+using USSR.Utilities;
 
-namespace Kiraio.USSR
+namespace USSR
 {
     public class Program
     {
-        const string VERSION = "1.0.0";
+        const string VERSION = "1.1.0";
         const string ASSET_CLASS_DB = "classdata.tpk";
 
         public enum LoadTypes
         {
             Asset,
-            Bundle
+            Bundle,
+            WebData
         }
 
-        static LoadTypes loadTypes;
+        static LoadTypes loadType;
 
         static void Main(string[] args)
         {
             if (args.Length < 1)
             {
                 Console.WriteLine($"Unity Splash Screen Remover (USSR) v{VERSION} \n");
-                Console.WriteLine("USSR is a CLI tool to remove Unity splash screen logo.");
                 Console.WriteLine(
-                    "USSR didn't directly \"hack\" Unity Editor, but the generated build. So, not all platforms is supported!"
+                    "USSR is a CLI tool to remove Unity splash screen logo while keep your logo displayed."
+                );
+                Console.WriteLine(
+                    "USSR didn't directly \"hack\" Unity Editor, instead the generated build. So, not all platforms is supported."
                 );
                 Console.WriteLine(
                     "For more information, visit USSR repo: https://github.com/kiraio-moe/USSR \n"
                 );
-                Console.WriteLine("Usage: USSR.exe <game_executable_path>");
+                Console.WriteLine("Usage: USSR.exe <path_to_game_executable>");
                 Console.WriteLine(
-                    "Alternatively, you can drag and drop game executable to USSR.exe"
+                    "Alternatively, you can just drag and drop your game executable to USSR.exe"
                 );
                 Console.ReadLine();
                 return;
             }
 
-            string? ussrPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-            string? assetClassTypesPackage = Path.Combine(ussrPath, ASSET_CLASS_DB);
+            string? ussrExec = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            string? tpkFile = Path.Combine(ussrExec, ASSET_CLASS_DB);
 
-            if (!File.Exists(assetClassTypesPackage))
+            AssetsManager assetsManager = new();
+
+            try
             {
-                Console.WriteLine($"Asset class types package not found: {assetClassTypesPackage}");
-                Console.WriteLine("The file is moved or deleted.");
+                Console.WriteLine("Loading class type package...");
+                assetsManager.LoadClassPackage(tpkFile);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Asset class types package not found. {ex.Message}");
                 Console.ReadLine();
                 return;
             }
 
-            Console.WriteLine("Loading class type package...");
-            AssetsManager? assetsManager = new();
-            assetsManager.LoadClassPackage(assetClassTypesPackage);
-
             string? execPath = args[0];
             string? execExtension = Path.GetExtension(execPath);
-            string? rootPath = Path.GetDirectoryName(execPath);
-            string? targetFile;
+            string? execDirectory = Path.GetDirectoryName(execPath);
+
+            string? dataFile;
+            string? dataDirectory; // game data directory
+
+            string? webDataFile = null; // WebGL.[data, data.br, data.gz]
+            string[] webDataFileExtensions = { ".data", ".data.br", ".data.gz" };
+            string? compressionType = null;
+            FileStream? bundleStream = null;
+
+            // List of files to be deleted
             List<string> temporaryFiles = new();
 
-            Console.WriteLine("Checking for supported platforms...");
             switch (execExtension)
             {
                 case ".exe":
                 case ".x86":
                 case ".x86_64":
                 case ".dmg":
-                    Console.WriteLine("Supported.");
-
-                    string? dataPath = Path.Combine(
-                        rootPath,
+                    dataDirectory = Path.Combine(
+                        execDirectory,
                         $"{Path.GetFileNameWithoutExtension(execPath)}_Data"
                     );
-
-                    Console.WriteLine("Checking for globalgamemanagers...");
-
-                    // Default compression
-                    targetFile = Path.Combine(dataPath, "globalgamemanagers");
-                    loadTypes = LoadTypes.Asset;
-
-                    // LZMA/LZ4 compression
-                    if (!File.Exists(targetFile))
-                    {
-                        Console.WriteLine(
-                            "globalgamemanagers not found. Checking for data.unity3d instead..."
-                        );
-
-                        targetFile = Path.Combine(dataPath, "data.unity3d");
-                        loadTypes = LoadTypes.Bundle;
-                    }
-
                     break;
                 case ".html":
-                    // TODO: Process WebGL.data
-                    // targetFile = Path.Combine(rootPath, "Build", "WebGL.data");
-                    // break;
-                    return;
+                    // Set to the Build folder first
+                    dataDirectory = Path.Combine(execDirectory, "Build");
+
+                    // Search for WebGL.* file
+                    foreach (string extension in webDataFileExtensions)
+                    {
+                        webDataFile = Path.Combine(dataDirectory, $"WebGL{extension}");
+
+                        if (File.Exists(webDataFile))
+                        {
+                            // Set compression type
+                            compressionType = extension;
+                            break;
+                        }
+                    }
+
+                    if (!Utility.CheckFile(webDataFile))
+                    {
+                        Console.ReadLine();
+                        return;
+                    }
+
+                    Utility.BackupOnlyOnce(webDataFile);
+
+                    string? decompressedWebData = Path.Combine(dataDirectory, "WebGL.data");
+                    temporaryFiles.Add(decompressedWebData);
+                    loadType = LoadTypes.WebData;
+
+                    switch (compressionType)
+                    {
+                        case ".data.br":
+                            BrotliUtils.DecompressFile(webDataFile, decompressedWebData);
+                            break;
+                        case ".data.gz":
+                            GZipUtils.DecompressFile(webDataFile, decompressedWebData);
+                            break;
+                    }
+
+                    // Unpack WebGL.data and set the dataDirectory to output folder
+                    dataDirectory = UnityWebDataHelper.UnpackBundleToFile(decompressedWebData);
+
+                    break;
                 default:
                     Console.WriteLine("Sorry, unsupported platform :(");
                     Console.ReadLine();
                     return;
             }
 
-            // Check game data
-            if (!File.Exists(targetFile))
+            Console.WriteLine("Checking for globalgamemanagers...");
+
+            // Default compression
+            dataFile = Path.Combine(dataDirectory, "globalgamemanagers");
+            loadType = LoadTypes.Asset;
+
+            // LZ4/LZ4HC compression
+            if (!File.Exists(dataFile))
             {
-                Console.WriteLine($"{targetFile} doesn't exists!");
-                Console.WriteLine("The file is moved or deleted.");
+                Console.WriteLine(
+                    "globalgamemanagers not found. Checking for data.unity3d instead..."
+                );
+
+                dataFile = Path.Combine(dataDirectory, "data.unity3d");
+                loadType = LoadTypes.Bundle;
+            }
+
+            if (!Utility.CheckFile(dataFile))
+            {
                 Console.ReadLine();
                 return;
             }
 
-            // Make temporary copy
-            string? inspectedFile = Utility.CloneFile(targetFile, $"{targetFile}.temp");
-            temporaryFiles.Add(inspectedFile);
+            // Only backup globalgamemanagers or data.unity3d if not in WebGL
+            if (loadType.Equals(LoadTypes.WebData))
+                Utility.BackupOnlyOnce(dataFile);
+
+            // Make temporary copy, so the original file ready to be overwritten
+            string? tempFile = Utility.CloneFile(dataFile, $"{dataFile}.temp");
+            temporaryFiles.Add(tempFile);
 
             AssetsFileInstance? assetFileInstance = null;
             BundleFileInstance? bundleFileInstance = null;
-            FileStream? bundleStream = null;
 
             try
             {
-                switch (loadTypes)
+                switch (loadType)
                 {
                     // globalgamemanagers
                     case LoadTypes.Asset:
                         // Load target file and it's dependencies
                         // Loading the dependencies is required to check unity logo asset
                         Console.WriteLine("Loading asset file and it's dependencies...");
-                        assetFileInstance = assetsManager.LoadAssetsFile(inspectedFile, true);
+                        assetFileInstance = assetsManager.LoadAssetsFile(tempFile, true);
+
                         break;
                     // data.unity3d
                     case LoadTypes.Bundle:
-                        Console.WriteLine("Loading asset bundle file...");
-                        bundleFileInstance = assetsManager.LoadBundleFile(inspectedFile, false);
+                        Console.WriteLine("Unpacking asset bundle file...");
 
-                        string? bundleStreamFile = $"{targetFile}.stream";
-                        bundleStream = File.Open(bundleStreamFile, FileMode.Create);
+                        string? unpackedBundleFile = $"{dataFile}.unpacked";
+                        temporaryFiles.Add(unpackedBundleFile);
 
+                        bundleStream = File.Open(unpackedBundleFile, FileMode.Create);
+
+                        bundleFileInstance = assetsManager.LoadBundleFile(tempFile, false);
                         bundleFileInstance.file = BundleHelper.UnpackBundleToStream(
                             bundleFileInstance.file,
                             bundleStream
                         );
-
-                        // Add to cleanup chores
-                        temporaryFiles.Add(bundleStreamFile);
 
                         Console.WriteLine("Loading asset file and it's dependencies...");
                         assetFileInstance = assetsManager.LoadAssetsFileFromBundle(
@@ -200,20 +249,12 @@ namespace Kiraio.USSR
                     "Unity splash screen logo didn't exist or already removed. Nothing to do."
                 );
 
-                bundleStream?.Close();
+                // bundleStream?.Close();
                 assetsManager.UnloadAll(true);
                 Utility.CleanUp(temporaryFiles);
 
                 Console.ReadLine();
                 return;
-            }
-
-            // Backup original file
-            string? backupOriginalFile = $"{targetFile}.bak";
-            if (!File.Exists(backupOriginalFile))
-            {
-                Console.WriteLine("Backup original file...");
-                Utility.CloneFile(targetFile, backupOriginalFile);
             }
 
             Console.WriteLine("Removing Unity splash screen...");
@@ -235,11 +276,7 @@ namespace Kiraio.USSR
                     logoPointer
                 );
 
-                // IDK why AssetsTools won't load "UnitySplash-cube"
-                // external asset while in Bundle file. So, we can
-                // check it's name then remove it.
-                // So, we break it into 2 types of file load.
-                switch (loadTypes)
+                switch (loadType)
                 {
                     case LoadTypes.Asset:
                         // Get the base field
@@ -252,18 +289,24 @@ namespace Kiraio.USSR
 
                         break;
                     case LoadTypes.Bundle:
-                        // After some testing, I realize only Unity
-                        // splash screen logo external asset that
-                        // won't load. So, we can use it to mark
-                        // that this is the Unity splash screen logo
+                        /*
+                        * IDK why AssetsTools won't load "UnitySplash-cube"
+                        * external asset while in Bundle file. So, we can
+                        * check it's name and remove it like before.
+                        *
+                        * Alternatively, we can still find it by checking
+                        * the base field. If it's null, then it is.
+                        */
                         if (logoExtInfo.baseField == null)
                             unityLogo = data;
                         break;
                 }
             }
 
-            // Remove Unity splash screen logo to completely remove
-            // Unity splash screen logo. Only our logo remained.
+            /*
+            * Remove "UnitySplash-cube" to completely remove
+            * Unity splash screen logo. So, Only our logo remained.
+            */
             if (unityLogo != null)
                 splashScreenLogos?.Children.Remove(unityLogo);
 
@@ -285,57 +328,55 @@ namespace Kiraio.USSR
                     )
                 };
 
-            List<BundleReplacer> bundleReplacers =
-                new()
-                {
-                    new BundleReplacerFromAssets(
-                        assetFileInstance?.name,
-                        null,
-                        assetFile,
-                        assetsReplacers
-                    )
-                };
-
-            FileStream? uncompressedBundleStream = null;
-
             try
             {
                 // Write modified asset file to disk
                 Console.WriteLine("Writing changes to disk...");
 
-                switch (loadTypes)
+                switch (loadType)
                 {
                     case LoadTypes.Asset:
-                        using (AssetsFileWriter writer = new(targetFile))
-                        {
+                        using (AssetsFileWriter writer = new(dataFile))
                             assetFile?.Write(writer, 0, assetsReplacers);
-                        }
                         break;
                     case LoadTypes.Bundle:
-                        string uncompressedBundleFile = $"{targetFile}.uncompressed";
+                        List<BundleReplacer> bundleReplacers =
+                            new()
+                            {
+                                new BundleReplacerFromAssets(
+                                    assetFileInstance?.name,
+                                    null,
+                                    assetFile,
+                                    assetsReplacers
+                                )
+                            };
+
+                        string uncompressedBundleFile = $"{dataFile}.uncompressed";
                         temporaryFiles.Add(uncompressedBundleFile);
 
                         using (AssetsFileWriter writer = new(uncompressedBundleFile))
-                        {
                             bundleFile?.Write(writer, bundleReplacers);
-                        }
 
-                        uncompressedBundleStream = File.OpenRead(uncompressedBundleFile);
-
-                        AssetBundleFile? uncompressedBundle = new();
-                        uncompressedBundle.Read(new AssetsFileReader(uncompressedBundleStream));
-
-                        using (AssetsFileReader reader = new(uncompressedBundleStream))
+                        using (
+                            FileStream? uncompressedBundleStream = File.OpenRead(
+                                uncompressedBundleFile
+                            )
+                        )
                         {
                             Console.WriteLine("Compressing asset bundle file...");
 
-                            using AssetsFileWriter writer = new(targetFile);
+                            AssetBundleFile? uncompressedBundle = new();
+                            uncompressedBundle.Read(new AssetsFileReader(uncompressedBundleStream));
+
+                            // using AssetsFileReader reader = new(uncompressedBundleStream);
+                            using AssetsFileWriter writer = new(dataFile);
                             uncompressedBundle.Pack(
                                 uncompressedBundle.Reader,
                                 writer,
                                 AssetBundleCompressionType.LZ4
                             );
                         }
+
                         break;
                 }
             }
@@ -350,9 +391,7 @@ namespace Kiraio.USSR
 
             // Cleanup temporary files
             Console.WriteLine("Cleaning up temporary files...");
-
             bundleStream?.Close();
-            uncompressedBundleStream?.Close();
             assetsManager.UnloadAllBundleFiles();
             assetsManager.UnloadAllAssetsFiles(true);
             Utility.CleanUp(temporaryFiles);
