@@ -38,7 +38,8 @@ To use the tool, follow the steps below:
 
 Unity Splash Screen Remover currently supports the following platforms:
 
-- PC, Mac, Linux Standalone (Support Default, LZ4 & LZ4HC Compression)
+- PC, Mac, Linux Standalone (Support LZ4 & LZ4HC compression)
+- WebGL (Support Brotli & GZip compression)
 
 ## Known Supported Unity Versions
 
@@ -48,16 +49,18 @@ For other versions, please test it yourself and let me know!
 
 ## Todo List
 
-- Add support for WebGL platform
-  - Decompress WebGL.data ✔️
-  - Compress back to WebGL.data (WIP)
-  - Support Brotli compression ✔️
-  - Support GZip compression ✔️
+- ~~Add support for WebGL platform~~ ✔️
+  - ~~Decompress WebGL.data~~ ✔️
+  - ~~Compress back to WebGL.data~~ ✔️
+  - ~~Support Brotli compression~~ ✔️
+  - ~~Support GZip compression~~ ✔️
 - ~~Support compressed build~~ ✔️
+- Refactor code
+- Add support for Android
 
 ## Credits
 
-Special thanks to [nesrak1](https://github.com/nesrak1) for the AssetsTools.NET library, which was instrumental in the development of this tool.
+Special thanks to [nesrak1](https://github.com/nesrak1) for the [AssetsTools.NET](https://github.com/nesrak1/AssetsTools.NET "AssetsTools.NET") library, which was instrumental in the development of this tool.
 
 ## License
 

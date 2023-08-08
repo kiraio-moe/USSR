@@ -63,10 +63,11 @@ namespace USSR
             string? execDirectory = Path.GetDirectoryName(execPath);
 
             string? dataFile;
-            string? dataDirectory; // game data directory
+            string? dataDirectory; // Can be "Game_Data" or "Build" directory
 
             string? webDataFile = null; // WebGL.[data, data.br, data.gz]
             string[] webDataFileExtensions = { ".data", ".data.br", ".data.gz" };
+            string? unpackedWebDataDirectory = null;
             string? compressionType = null;
             FileStream? bundleStream = null;
 
@@ -113,6 +114,7 @@ namespace USSR
                     temporaryFiles.Add(decompressedWebData);
                     loadType = LoadTypes.WebData;
 
+                    // Decompress WebGL.data.* first
                     switch (compressionType)
                     {
                         case ".data.br":
@@ -124,7 +126,10 @@ namespace USSR
                     }
 
                     // Unpack WebGL.data and set the dataDirectory to output folder
-                    dataDirectory = UnityWebDataHelper.UnpackBundleToFile(decompressedWebData);
+                    unpackedWebDataDirectory = UnityWebDataHelper.UnpackWebDataToFile(
+                        decompressedWebData
+                    );
+                    dataDirectory = unpackedWebDataDirectory;
 
                     break;
                 default:
@@ -276,30 +281,27 @@ namespace USSR
                     logoPointer
                 );
 
-                switch (loadType)
+                if (logoExtInfo.baseField != null)
                 {
-                    case LoadTypes.Asset:
-                        // Get the base field
-                        AssetTypeValueField? logoBase = logoExtInfo.baseField;
-                        string? logoName = logoBase["m_Name"].AsString;
+                    // Get the base field
+                    AssetTypeValueField? logoBase = logoExtInfo.baseField;
+                    string? logoName = logoBase["m_Name"].AsString;
 
-                        // If it's Unity splash screen logo
-                        if (logoName.Contains("UnitySplash-cube"))
-                            unityLogo = data;
-
-                        break;
-                    case LoadTypes.Bundle:
-                        /*
-                        * IDK why AssetsTools won't load "UnitySplash-cube"
-                        * external asset while in Bundle file. So, we can
-                        * check it's name and remove it like before.
-                        *
-                        * Alternatively, we can still find it by checking
-                        * the base field. If it's null, then it is.
-                        */
-                        if (logoExtInfo.baseField == null)
-                            unityLogo = data;
-                        break;
+                    // If it's Unity splash screen logo
+                    if (logoName.Contains("UnitySplash-cube"))
+                        unityLogo = data;
+                }
+                else
+                {
+                    /*
+                    * IDK why AssetsTools won't load "UnitySplash-cube"
+                    * external asset while in Bundle file. So, we can
+                    * check it's name and remove it like before.
+                    *
+                    * Alternatively, we can still find it by checking
+                    * the base field. If it's null, then it is.
+                    */
+                    unityLogo = data;
                 }
             }
 
@@ -368,7 +370,6 @@ namespace USSR
                             AssetBundleFile? uncompressedBundle = new();
                             uncompressedBundle.Read(new AssetsFileReader(uncompressedBundleStream));
 
-                            // using AssetsFileReader reader = new(uncompressedBundleStream);
                             using AssetsFileWriter writer = new(dataFile);
                             uncompressedBundle.Pack(
                                 uncompressedBundle.Reader,
@@ -395,6 +396,36 @@ namespace USSR
             assetsManager.UnloadAllBundleFiles();
             assetsManager.UnloadAllAssetsFiles(true);
             Utility.CleanUp(temporaryFiles);
+
+            if (!loadType.Equals(LoadTypes.WebData))
+            {
+                Console.WriteLine("Packing WebGL...");
+
+                string? webGLdataPath = Path.Combine(execDirectory, "Build", "WebGL.data");
+
+                UnityWebDataHelper.PackFilesToWebData(
+                    unpackedWebDataDirectory,
+                webGLdataPath
+                );
+
+                // Delete WebGL folder
+                Directory.Delete(unpackedWebDataDirectory, true);
+
+                // Compress WebGL.data if using compression
+                Console.WriteLine("Compressing WebGL.data");
+                switch (compressionType)
+                {
+                    case ".data.br":
+                        BrotliUtils.CompressFile(webGLdataPath, $"{webGLdataPath}.br");
+                        break;
+                    case ".data.gz":
+                        GZipUtils.CompressFile(webGLdataPath, $"{webGLdataPath}.gz");
+                        break;
+                }
+
+                // Delete WebGL.data
+                File.Delete(webGLdataPath);
+            }
 
             Console.WriteLine("Successfully removed Unity splash screen. Enjoy :) \n");
             Console.WriteLine(
