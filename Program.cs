@@ -1,13 +1,14 @@
 ﻿using System.Reflection;
 using AssetsTools.NET;
 using AssetsTools.NET.Extra;
+using Spectre.Console;
 using USSR.Utilities;
 
 namespace USSR
 {
     public class Program
     {
-        const string VERSION = "1.1.0";
+        const string VERSION = "1.1.1";
         const string ASSET_CLASS_DB = "classdata.tpk";
 
         public enum LoadTypes
@@ -21,22 +22,19 @@ namespace USSR
 
         static void Main(string[] args)
         {
+            AnsiConsole.Background = Color.Grey11;
+
             if (args.Length < 1)
             {
-                Console.WriteLine($"Unity Splash Screen Remover (USSR) v{VERSION} \n");
-                Console.WriteLine(
-                    "USSR is a CLI tool to remove Unity splash screen logo while keep your logo displayed."
-                );
-                Console.WriteLine(
-                    "USSR didn't directly \"hack\" Unity Editor, instead the generated build. So, not all platforms is supported."
-                );
-                Console.WriteLine(
-                    "For more information, visit USSR repo: https://github.com/kiraio-moe/USSR \n"
-                );
-                Console.WriteLine("Usage: USSR.exe <path_to_game_executable>");
-                Console.WriteLine(
-                    "Alternatively, you can just drag and drop your game executable to USSR.exe"
-                );
+                AnsiConsole.MarkupLineInterpolated($"[bold red]Unity Splash Screen Remover v{VERSION}[/]");
+                Console.WriteLine();
+                AnsiConsole.MarkupLine("USSR is a CLI tool to remove Unity splash screen logo while keep your logo displayed.");
+                AnsiConsole.MarkupLine("USSR didn't directly \"hack\" Unity Editor, instead the generated build. So, not all platforms is supported.");
+                AnsiConsole.MarkupLine("For more information, visit USSR GitHub repo: [link]https://github.com/kiraio-moe/USSR[/]");
+                Console.WriteLine();
+                AnsiConsole.MarkupLine("[bold green]Usage:[/]");
+                AnsiConsole.MarkupLine("[yellow]USSR.exe <path/to/game/executable>[/]");
+                AnsiConsole.MarkupLine("Alternatively, you can just drag and drop your game executable to USSR.exe");
                 Console.ReadLine();
                 return;
             }
@@ -48,12 +46,12 @@ namespace USSR
 
             try
             {
-                Console.WriteLine("Loading class type package...");
+                AnsiConsole.MarkupLine("Loading class type package...");
                 assetsManager.LoadClassPackage(tpkFile);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Asset class types package not found. {ex.Message}");
+                AnsiConsole.MarkupLine($"[red]Asset class types package not found![/] {ex.Message}");
                 Console.ReadLine();
                 return;
             }
@@ -62,14 +60,13 @@ namespace USSR
             string? execExtension = Path.GetExtension(execPath);
             string? execDirectory = Path.GetDirectoryName(execPath);
 
-            string? dataFile;
+            string? ggmFile;
             string? dataDirectory; // Can be "Game_Data" or "Build" directory
 
             string? webDataFile = null; // WebGL.[data, data.br, data.gz]
             string[] webDataFileExtensions = { ".data", ".data.br", ".data.gz" };
             string? unpackedWebDataDirectory = null;
             string? compressionType = null;
-            FileStream? bundleStream = null;
 
             // List of files to be deleted
             List<string> temporaryFiles = new();
@@ -133,44 +130,45 @@ namespace USSR
 
                     break;
                 default:
-                    Console.WriteLine("Sorry, unsupported platform :(");
+                    AnsiConsole.MarkupLine("[red]Sorry, unsupported platform :([/]");
                     Console.ReadLine();
                     return;
             }
 
-            Console.WriteLine("Checking for globalgamemanagers...");
+            AnsiConsole.MarkupLine("Checking for globalgamemanagers...");
 
             // Default compression
-            dataFile = Path.Combine(dataDirectory, "globalgamemanagers");
+            ggmFile = Path.Combine(dataDirectory, "globalgamemanagers");
             loadType = LoadTypes.Asset;
 
             // LZ4/LZ4HC compression
-            if (!File.Exists(dataFile))
+            if (!File.Exists(ggmFile))
             {
-                Console.WriteLine(
-                    "globalgamemanagers not found. Checking for data.unity3d instead..."
+                AnsiConsole.MarkupLine(
+                    "[red]globalgamemanagers not found.[/] Checking for data.unity3d instead..."
                 );
 
-                dataFile = Path.Combine(dataDirectory, "data.unity3d");
+                ggmFile = Path.Combine(dataDirectory, "data.unity3d");
                 loadType = LoadTypes.Bundle;
             }
 
-            if (!Utility.CheckFile(dataFile))
+            if (!Utility.CheckFile(ggmFile))
             {
                 Console.ReadLine();
                 return;
             }
 
             // Only backup globalgamemanagers or data.unity3d if not in WebGL
-            if (loadType.Equals(LoadTypes.WebData))
-                Utility.BackupOnlyOnce(dataFile);
+            if (!(loadType == LoadTypes.WebData))
+                Utility.BackupOnlyOnce(ggmFile);
 
             // Make temporary copy, so the original file ready to be overwritten
-            string? tempFile = Utility.CloneFile(dataFile, $"{dataFile}.temp");
+            string? tempFile = Utility.CloneFile(ggmFile, $"{ggmFile}.temp");
             temporaryFiles.Add(tempFile);
 
             AssetsFileInstance? assetFileInstance = null;
             BundleFileInstance? bundleFileInstance = null;
+            FileStream? bundleStream = null;
 
             try
             {
@@ -180,15 +178,15 @@ namespace USSR
                     case LoadTypes.Asset:
                         // Load target file and it's dependencies
                         // Loading the dependencies is required to check unity logo asset
-                        Console.WriteLine("Loading asset file and it's dependencies...");
+                        AnsiConsole.MarkupLine("Loading asset file and it's dependencies...");
                         assetFileInstance = assetsManager.LoadAssetsFile(tempFile, true);
 
                         break;
                     // data.unity3d
                     case LoadTypes.Bundle:
-                        Console.WriteLine("Unpacking asset bundle file...");
+                        AnsiConsole.MarkupLine("Unpacking asset bundle file...");
 
-                        string? unpackedBundleFile = $"{dataFile}.unpacked";
+                        string? unpackedBundleFile = $"{ggmFile}.unpacked";
                         temporaryFiles.Add(unpackedBundleFile);
 
                         bundleStream = File.Open(unpackedBundleFile, FileMode.Create);
@@ -199,7 +197,7 @@ namespace USSR
                             bundleStream
                         );
 
-                        Console.WriteLine("Loading asset file and it's dependencies...");
+                        AnsiConsole.MarkupLine("Loading asset file and it's dependencies...");
                         assetFileInstance = assetsManager.LoadAssetsFileFromBundle(
                             bundleFileInstance,
                             0,
@@ -211,7 +209,7 @@ namespace USSR
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error loading asset file. {ex.Message}");
+                AnsiConsole.MarkupLine($"Error loading asset file. {ex.Message}");
                 Console.ReadLine();
                 return;
             }
@@ -219,7 +217,7 @@ namespace USSR
             AssetBundleFile? bundleFile = bundleFileInstance?.file;
             AssetsFile? assetFile = assetFileInstance?.file;
 
-            Console.WriteLine("Loading asset class types database...");
+            AnsiConsole.MarkupLine("Loading asset class types database...");
             assetsManager.LoadClassDatabaseFromPackage(assetFile?.Metadata.UnityVersion);
 
             List<AssetFileInfo>? buildSettingsInfo = assetFile?.GetAssetsOfType(
@@ -250,19 +248,27 @@ namespace USSR
 
             if (isProVersion && !showUnityLogo)
             {
-                Console.WriteLine(
+                AnsiConsole.MarkupLine(
                     "Unity splash screen logo didn't exist or already removed. Nothing to do."
                 );
 
-                // bundleStream?.Close();
                 assetsManager.UnloadAll(true);
                 Utility.CleanUp(temporaryFiles);
+
+                if (loadType == LoadTypes.WebData)
+                    Directory.Delete(dataDirectory, true);
 
                 Console.ReadLine();
                 return;
             }
 
-            Console.WriteLine("Removing Unity splash screen...");
+            AnsiConsole.MarkupLine("Sometimes USSR can\'t automatically detect Unity splash screen logo and it\'s leading to accidentally removing your own logo. So, USSR need more information to tackle this such as the logo duration.");
+            AnsiConsole.MarkupLine("[red]Please make difference with the logo duration when you build your game! If your logo and Unity logo have same duration, USSR will remove both of them.[/] If no value provided, USSR will use it\'s own way to detect it and may removing your own logo.");
+            AnsiConsole.Markup("[green](Optional)[/] Please enter Unity splash screen logo duration: ");
+
+            int.TryParse(Console.ReadLine(), System.Globalization.NumberStyles.Integer, null, out int logoDuration);
+
+            AnsiConsole.MarkupLine("Removing Unity splash screen...");
 
             // Remove Unity splash screen by flipping these boolean fields
             buildSettingsBase["hasPROVersion"].AsBool = !isProVersion; // true
@@ -298,10 +304,13 @@ namespace USSR
                     * external asset while in Bundle file. So, we can
                     * check it's name and remove it like before.
                     *
-                    * Alternatively, we can still find it by checking
-                    * the base field. If it's null, then it is.
+                    * Alternatively, we can still find it by using
+                    * logo duration or checking if the base field is null.
                     */
-                    unityLogo = data;
+                    if (data?["duration"].AsInt == logoDuration)
+                        unityLogo = data;
+                    else
+                        unityLogo = data;
                 }
             }
 
@@ -312,7 +321,7 @@ namespace USSR
             if (unityLogo != null)
                 splashScreenLogos?.Children.Remove(unityLogo);
 
-            Console.WriteLine("Done.");
+            AnsiConsole.Markup("Done.\n");
 
             // Store modified base fields
             List<AssetsReplacer>? assetsReplacers =
@@ -333,12 +342,12 @@ namespace USSR
             try
             {
                 // Write modified asset file to disk
-                Console.WriteLine("Writing changes to disk...");
+                AnsiConsole.MarkupLine("Writing changes to disk...");
 
                 switch (loadType)
                 {
                     case LoadTypes.Asset:
-                        using (AssetsFileWriter writer = new(dataFile))
+                        using (AssetsFileWriter writer = new(ggmFile))
                             assetFile?.Write(writer, 0, assetsReplacers);
                         break;
                     case LoadTypes.Bundle:
@@ -353,7 +362,7 @@ namespace USSR
                                 )
                             };
 
-                        string uncompressedBundleFile = $"{dataFile}.uncompressed";
+                        string uncompressedBundleFile = $"{ggmFile}.uncompressed";
                         temporaryFiles.Add(uncompressedBundleFile);
 
                         using (AssetsFileWriter writer = new(uncompressedBundleFile))
@@ -365,12 +374,12 @@ namespace USSR
                             )
                         )
                         {
-                            Console.WriteLine("Compressing asset bundle file...");
+                            AnsiConsole.MarkupLine("Compressing asset bundle file...");
 
                             AssetBundleFile? uncompressedBundle = new();
                             uncompressedBundle.Read(new AssetsFileReader(uncompressedBundleStream));
 
-                            using AssetsFileWriter writer = new(dataFile);
+                            using AssetsFileWriter writer = new(ggmFile);
                             uncompressedBundle.Pack(
                                 uncompressedBundle.Reader,
                                 writer,
@@ -383,23 +392,23 @@ namespace USSR
             }
             catch (Exception ex)
             {
-                Console.WriteLine(
-                    $"Failed to save file! {ex.Message} Make sure to close any processes that use it."
+                AnsiConsole.MarkupLine(
+                    $"[red]Failed to save file![/] {ex.Message} Make sure to close any processes that use it."
                 );
                 Console.ReadLine();
                 return;
             }
 
             // Cleanup temporary files
-            Console.WriteLine("Cleaning up temporary files...");
+            AnsiConsole.MarkupLine("Cleaning up temporary files...");
             bundleStream?.Close();
             assetsManager.UnloadAllBundleFiles();
             assetsManager.UnloadAllAssetsFiles(true);
             Utility.CleanUp(temporaryFiles);
 
-            if (!loadType.Equals(LoadTypes.WebData))
+            if (loadType == LoadTypes.WebData)
             {
-                Console.WriteLine("Packing WebGL...");
+                AnsiConsole.MarkupLine("Packing WebGL...");
 
                 string? webGLdataPath = Path.Combine(execDirectory, "Build", "WebGL.data");
 
@@ -412,7 +421,8 @@ namespace USSR
                 Directory.Delete(unpackedWebDataDirectory, true);
 
                 // Compress WebGL.data if using compression
-                Console.WriteLine("Compressing WebGL.data");
+                AnsiConsole.MarkupLine("Compressing WebGL.data...");
+
                 switch (compressionType)
                 {
                     case ".data.br":
@@ -427,8 +437,8 @@ namespace USSR
                 File.Delete(webGLdataPath);
             }
 
-            Console.WriteLine("Successfully removed Unity splash screen. Enjoy :) \n");
-            Console.WriteLine(
+            AnsiConsole.MarkupLine("[green]Successfully remove Unity splash screen.[/] Enjoy :) \n");
+            AnsiConsole.MarkupLine(
                 "Don't forget to visit USSR repo: https://github.com/kiraio-moe/USSR and give it a star!"
             );
             Console.ReadLine();

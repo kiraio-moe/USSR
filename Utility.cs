@@ -1,3 +1,5 @@
+using Spectre.Console;
+
 namespace USSR.Utilities
 {
     public class Utility
@@ -14,23 +16,19 @@ namespace USSR.Utilities
             {
                 // Check if the source file exists
                 if (!File.Exists(sourceFilePath))
-                {
-                    throw new FileNotFoundException("Backup source file doesn\'t exist!");
-                }
+                    AnsiConsole.WriteLine("[red]Backup source file doesn\'t exist![/]");
 
                 // Create the backup destination directory if it doesn't exist
                 string? backupDir = Path.GetDirectoryName(backupDestinationPath);
                 if (Directory.Exists(backupDir))
-                {
                     Directory.CreateDirectory(backupDir);
-                }
 
                 // Copy the source file to the backup destination
                 File.Copy(sourceFilePath, backupDestinationPath, true);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"An error occurred during the backup process: {ex.Message}");
+                AnsiConsole.MarkupLine($"[red]An error occurred during the backup process[/]: {ex.Message}");
             }
 
             return backupDestinationPath;
@@ -47,7 +45,7 @@ namespace USSR.Utilities
 
             if (!File.Exists(backupFile))
             {
-                Console.WriteLine("Backup original file...");
+                AnsiConsole.MarkupLine("Backup original file...");
 
                 CloneFile(sourceFile, backupFile);
             }
@@ -72,7 +70,7 @@ namespace USSR.Utilities
         }
 
         /// <summary>
-        /// Check if File exists.
+        /// Check if File exists. Return default message if not.
         /// </summary>
         /// <param name="file"></param>
         /// <returns></returns>
@@ -80,38 +78,10 @@ namespace USSR.Utilities
         {
             if (!File.Exists(file))
             {
-                Console.WriteLine($"{file} didn\'t exist! The file is moved or deleted.");
-
+                AnsiConsole.MarkupLineInterpolated($"[red]{file} didn\'t exist![/] The file is moved or deleted.");
                 return false;
             }
-
             return true;
-        }
-
-        /// <summary>
-        /// Find an asset file.
-        /// </summary>
-        /// <param name="assetFileList"></param>
-        /// <param name="rootDirectory"></param>
-        /// <returns>If one is found, return the path. Otherwise null.</returns>
-        public static string? FindAsset(
-            string[] assetFileList,
-            string rootDirectory,
-            string? filePrefix = null,
-            string? filePostfix = null
-        )
-        {
-            string? assetFile = null;
-
-            foreach (string file in assetFileList)
-            {
-                assetFile = Path.Combine(rootDirectory, "${filePrefix}{file}{filePostfix}");
-
-                if (File.Exists(assetFile))
-                    break;
-            }
-
-            return assetFile;
         }
     }
 }
