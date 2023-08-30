@@ -14,11 +14,12 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        dotnet-version: [ '6.0.x', '7.0.x', '8.0.x']
+        dotnet-version: [ '6.0.x', '7.0.x' ]
+        dotnet-framework: [ 'net6.0', 'net7.0' ]
+        dotnet-runtime: [ 'win-x64', 'win-x86', 'linux-x64', 'linux-arm', 'linux-arm64', 'osx-x64' ]
 
     steps:
     - uses: actions/checkout@v3
@@ -26,8 +27,7 @@ jobs:
       uses: actions/setup-dotnet@v3
       with:
         dotnet-version: ${{ matrix.dotnet-version }}
-    - name: .NET version
-      run: dotnet --version
+        dotnet-quality: ga
     - name: Cache dependencies
       uses: actions/cache@v3
       with:
@@ -35,30 +35,22 @@ jobs:
         key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
         restore-keys: |
           ${{ runner.os }}-nuget
-    - name: Restore dependencies
+    - name: Install dependencies
       run: dotnet restore
     - name: Build
-      run: dotnet build -c Release
+      run: dotnet build -c Release --no-restore
     - name: Test
-      run: dotnet test --logger trx --results-directory "TestResults-${{ matrix.dotnet-version }}"
-    - name: Test Report
+      run: dotnet test --logger trx --results-directory ${{ github.workspace }}/TestResults-${{ matrix.dotnet-framework }}-${{ matrix.dotnet-runtime }} --no-restore --verbosity normal
+    - name: Report test
       uses: actions/upload-artifact@v3
       if: ${{ always() }}
       with:
-        name: test-results-${{ matrix.dotnet-version }}
-        path: TestResults-${{ matrix.dotnet-version }}
-
-      # uses: dorny/test-reporter@v1
-      # if: success() || failure()
-      # with:
-      #   artifact: test-results-${{ matrix.dotnet-version }}
-      #   name: Test Result ${{ matrix.dotnet-version }}
-      #   path: TestResults-${{ matrix.dotnet-version }}
-      #   reporter: dotnet-trx
+        name: test-results-${{ matrix.dotnet-framework }}
+        path: ${{ github.workspace }}/TestResults-${{ matrix.dotnet-framework }}-${{ matrix.dotnet-runtime }}
     - name: Publish
-      run: dotnet publish -c Release -o ${{ env.DOTNET_ROOT }}/USSR-dotnet${{ matrix.dotnet-version }}
+      run: dotnet publish -c Release --framework ${{ matrix.dotnet-framework }} --runtime ${{ matrix.dotnet-runtime }} --no-self-contained
     - name: Upload artifact for deployment job
       uses: actions/upload-artifact@v3
       with:
-        name: USSR-dotnet${{ matrix.dotnet-version }}
-        path: ${{ env.DOTNET_ROOT }}/USSR-dotnet${{ matrix.dotnet-version }}
+        name: USSR-${{ matrix.dotnet-framework }}-latest
+        path: ${{ github.workspace }}/bin/Release/${{ matrix.dotnet-framework }}/${{ matrix.dotnet-runtime }}/publish/
