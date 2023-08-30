@@ -1,5 +1,6 @@
 using System.Text;
 using Kaitai;
+using Spectre.Console;
 
 namespace USSR.Utilities
 {
@@ -43,7 +44,7 @@ namespace USSR.Utilities
             if (!Directory.Exists(outputDirectory))
                 Directory.CreateDirectory(outputDirectory);
 
-            Console.WriteLine("Extracting bundle file...");
+            AnsiConsole.MarkupLine("Extracting bundle file...");
 
             foreach (UnityWebData.FileEntry fileEntry in unityWebData.Files)
             {
@@ -63,7 +64,7 @@ namespace USSR.Utilities
                 outputFileStream?.Write(fileEntry?.Data);
             }
 
-            Console.WriteLine("Extraction complete.");
+            AnsiConsole.MarkupLine("[green]Extraction complete.[/]");
             return outputDirectory;
         }
 
