@@ -8,8 +8,10 @@ namespace USSR
 {
     public class Program
     {
-        const string VERSION = "1.1.2";
+        const string VERSION = "1.1.3";
         const string ASSET_CLASS_DB = "classdata.tpk";
+        static readonly byte[] globalgamemanagersMagic = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x16, 0x00, 0x00, 0x00, 0x00 };
+        static readonly byte[] unity3dMagic = { 0x55, 0x6E, 0x69, 0x74, 0x79, 0x46, 0x53, 0x00, 0x00, 0x00, 0x00, 0x08 };
 
         static void Main(string[] args)
         {
@@ -48,67 +50,74 @@ namespace USSR
             // List of files to be deleted later
             List<string> temporaryFiles = new();
 
-            switch (execExtension)
+            if (Utility.IsFile(execFile, globalgamemanagersMagic) || Utility.IsFile(execFile, unity3dMagic))
             {
-                case ".exe":
-                case ".x86":
-                case ".x86_64":
-                case ".dmg":
-                    gameDataDirectory = Path.Combine(
-                        execDirectory,
-                        $"{Path.GetFileNameWithoutExtension(execFile)}_Data"
-                    );
-                    break;
-                case ".html":
-                    isWebGL = true;
-                    gameDataDirectory = Path.Combine(execDirectory, "Build");
-                    rawWebGLFile = Path.Combine(gameDataDirectory, "WebGL.data");
+                gameDataDirectory = Path.GetDirectoryName(execFile);
+            }
+            else
+            {
+                switch (execExtension)
+                {
+                    case ".exe":
+                    case ".x86":
+                    case ".x86_64":
+                    case ".dmg":
+                        gameDataDirectory = Path.Combine(
+                            execDirectory,
+                            $"{Path.GetFileNameWithoutExtension(execFile)}_Data"
+                        );
+                        break;
+                    case ".html":
+                        isWebGL = true;
+                        gameDataDirectory = Path.Combine(execDirectory, "Build");
+                        rawWebGLFile = Path.Combine(gameDataDirectory, "WebGL.data");
 
-                    // Search for WebGL.* file
-                    foreach (string extension in webGLFileExtensions)
-                    {
-                        if (File.Exists(webGLFile = Path.Combine(gameDataDirectory, $"WebGL{extension}")))
+                        // Search for WebGL.* file
+                        foreach (string extension in webGLFileExtensions)
                         {
-                            webGLCompressionType = extension;
-                            break;
+                            if (File.Exists(webGLFile = Path.Combine(gameDataDirectory, $"WebGL{extension}")))
+                            {
+                                webGLCompressionType = extension;
+                                break;
+                            }
                         }
-                    }
 
-                    if (!File.Exists(webGLFile))
-                    {
-                        AnsiConsole.MarkupLine("[red]No any WebGL.data found.[/]");
+                        if (!File.Exists(webGLFile))
+                        {
+                            AnsiConsole.MarkupLine("[red]No any WebGL.data found.[/]");
+                            Console.ReadLine();
+                            return;
+                        }
+
+                        AnsiConsole.MarkupLineInterpolated($"Found [green]{Path.GetFileName(webGLFile)}[/].");
+
+                        // Backup WebGL.* file
+                        Utility.BackupOnlyOnce(webGLFile);
+
+                        switch (webGLCompressionType)
+                        {
+                            case ".data.br":
+                                AnsiConsole.MarkupLineInterpolated($"Decompress [green]{Path.GetFileName(webGLFile)}[/] using Brotli compression.");
+                                BrotliUtils.DecompressFile(webGLFile, rawWebGLFile);
+                                break;
+                            case ".data.gz":
+                                AnsiConsole.MarkupLineInterpolated($"Decompress [green]{Path.GetFileName(webGLFile)}[/] using GZip compression.");
+                                GZipUtils.DecompressFile(webGLFile, rawWebGLFile);
+                                break;
+                        }
+
+                        // Unpack WebGL.data and set the gameDataDirectory to output folder
+                        unpackedWebGLDirectory = UnityWebDataHelper.UnpackWebDataToFile(
+                            bundleFile: rawWebGLFile
+                        );
+                        gameDataDirectory = unpackedWebGLDirectory;
+
+                        break;
+                    default:
+                        AnsiConsole.MarkupLine("[red]Sorry, unsupported platform :([/]");
                         Console.ReadLine();
                         return;
-                    }
-
-                    AnsiConsole.MarkupLineInterpolated($"Found [green]{Path.GetFileName(webGLFile)}[/].");
-
-                    // Backup WebGL.* file
-                    Utility.BackupOnlyOnce(webGLFile);
-
-                    switch (webGLCompressionType)
-                    {
-                        case ".data.br":
-                            AnsiConsole.MarkupLineInterpolated($"Decompress [green]{Path.GetFileName(webGLFile)}[/] using Brotli compression.");
-                            BrotliUtils.DecompressFile(webGLFile, rawWebGLFile);
-                            break;
-                        case ".data.gz":
-                            AnsiConsole.MarkupLineInterpolated($"Decompress [green]{Path.GetFileName(webGLFile)}[/] using GZip compression.");
-                            GZipUtils.DecompressFile(webGLFile, rawWebGLFile);
-                            break;
-                    }
-
-                    // Unpack WebGL.data and set the gameDataDirectory to output folder
-                    unpackedWebGLDirectory = UnityWebDataHelper.UnpackWebDataToFile(
-                        bundleFile: rawWebGLFile
-                    );
-                    gameDataDirectory = unpackedWebGLDirectory;
-
-                    break;
-                default:
-                    AnsiConsole.MarkupLine("[red]Sorry, unsupported platform :([/]");
-                    Console.ReadLine();
-                    return;
+                }
             }
 
             AssetsFileInstance? assetFileInstance = null;
@@ -318,12 +327,16 @@ namespace USSR
 
                 if (File.Exists(globalgamemanagersFile))
                 {
+                    Utility.BackupOnlyOnce(globalgamemanagersFile);
+
                     using AssetsFileWriter writer = new(globalgamemanagersFile);
                     assetFile?.Write(writer, 0, assetsReplacers);
                 }
 
                 if (File.Exists(unity3dFile))
                 {
+                    Utility.BackupOnlyOnce(unity3dFile);
+
                     List<BundleReplacer> bundleReplacers =
                         new()
                         {

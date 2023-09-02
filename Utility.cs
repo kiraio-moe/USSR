@@ -4,6 +4,30 @@ namespace USSR.Utilities
 {
     public class Utility
     {
+        public static bool IsFile(string filePath, byte[] signatureComparer)
+        {
+            try
+            {
+                byte[] fileSignature = new byte[4];
+
+                using FileStream file = File.OpenRead(filePath);
+                file.Read(fileSignature, 0, fileSignature.Length);
+
+                for (int i = 0; i < fileSignature.Length; i++)
+                {
+                    if (fileSignature[i] != signatureComparer[i])
+                        return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error reading {Path.GetFileName(filePath)}. {ex.Message}");
+                return false;
+            }
+        }
+
         /// <summary>
         /// Clone a file.
         /// </summary>
