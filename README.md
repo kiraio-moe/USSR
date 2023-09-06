@@ -8,6 +8,7 @@
 - [Supported Platforms](#supported-platforms)
 - [Supported Unity Versions](#supported-unity-versions)
 - [Todo List](#todo-list)
+- [Contribute](#contribute)
 - [Credits](#credits)
 - [License](#license)
 - [Disclaimer](#disclaimer)
@@ -22,6 +23,7 @@ The tool is an implementation of the guide available at <https://github.com/kira
 ## Requirements
 
 - [.NET 6.0 SDK](https://dotnet.microsoft.com/download/dotnet/6.0 ".NET 6.0 SDK") or [.NET 7.0 SDK](https://dotnet.microsoft.com/download/dotnet/7.0 ".NET 7.0 SDK")
+- Splash screen `Draw Mode` have been set to `All Sequential` in `Player Settings`.
 
 ## Usages
 
@@ -38,7 +40,7 @@ To use the tool, follow the steps below:
         USSR.exe <path/to/(*.exe|*.x86|*.x86_64|*.dmg|index.html|globalgamemanagers|data.unity3d|WebGL.data)>
         ```
 
-3. For Android platform, there's extra work for it. You doesn't need **Decompile** and **Recompile** process as done in the [guide](https://github.com/kiraio-moe/remove-unity-splash-screen "remove-unity-splash-screen guide").
+3. For Android platform, there's extra work for it. You doesn't need to do **Decompile** and **Recompile** process as done in the [guide](https://github.com/kiraio-moe/remove-unity-splash-screen "remove-unity-splash-screen guide").
 
     - Make sure you already have [`JDK`](https://www.openlogic.com/openjdk-downloads?field_java_parent_version_target_id=416&field_operating_system_target_id=All&field_architecture_target_id=All&field_java_package_target_id=All "OpenJDK") & [`SDK`](https://androidsdkoffline.blogspot.com/p/all-android-sdk-latest-stable-versions.html) installed. In another word, you can build your game in Unity Editor.
     - [Android Studio](https://developer.android.com/studio "Android Studio") installed. Make sure to set the `JDK` and `SDK` path to the one you used for Unity Editor.
@@ -55,7 +57,7 @@ To use the tool, follow the steps below:
 
       - After successfully removing the splash screen, **import** the project to `Android Studio`.
       - **Build** the project.
-      - If you want to upload your game to app store (e.g. Google Play Store), you can `sign` your game with `keystore` and build the project as app bundle (`.aar`). I won't cover those steps here because you can find them pretty much on the internet.
+      - If you want to upload your game to app store (e.g. Google Play Store), you can `sign` your game with `keystore` and build the project as app bundle (`.aab`). I won't cover those steps here because you can find them pretty much on the internet.
 
 ## Supported Platforms
 
@@ -80,9 +82,15 @@ USSR support the following platforms:
 - ~~Add support for Android~~ ✔️
 - Refactor code 🚧
 
+## Contribute
+
+If you found any bugs or have suggestions to make USSR more better, feel free to make an Issue. Pull Request even better.
+
 ## Credits
 
 Special thanks to [nesrak1](https://github.com/nesrak1) for the [AssetsTools.NET](https://github.com/nesrak1/AssetsTools.NET "AssetsTools.NET") library, which was instrumental in the development of this tool.
+
+- [arti4ikmin](https://youtube.com/@arti4ikmin "arti4ikmin on YouTube") for the instruction for Android platform.
 
 ## License
 
