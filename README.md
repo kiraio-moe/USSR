@@ -16,7 +16,7 @@
 
 ## Overview
 
-The Unity Splash Screen Remover is a Command-Line Interface (CLI) tool designed to remove the Unity splash screen logo from Unity-built games.
+The Unity Splash Screen Remover is a Command-Line Interface (CLI) tool designed to remove the Unity splash screen logo + [watermark](https://forum.unity.com/threads/i-am-using-personal-but-there-is-trial-version-water-mark-after-build.591610/#post-3975343) from Unity-built games.
 
 The tool is an implementation of the guide available at <https://github.com/kiraio-moe/remove-unity-splash-screen>. By utilizing this tool, you can easily remove Unity splash screen logo from your games and keep your own logo displayed.
 

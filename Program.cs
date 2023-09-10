@@ -211,6 +211,7 @@ namespace USSR
             // Get required fields to remove the splash screen
             bool isProVersion = buildSettingsBase["hasPROVersion"].AsBool;
             bool showUnityLogo = playerSettingsBase["m_ShowUnitySplashLogo"].AsBool;
+            bool noWatermark = buildSettingsBase["isNoWatermarkBuild"].AsBool;
 
             if (isProVersion && !showUnityLogo)
             {
@@ -254,6 +255,7 @@ namespace USSR
             // Remove Unity splash screen by flipping these boolean fields
             buildSettingsBase["hasPROVersion"].AsBool = !isProVersion; // true
             playerSettingsBase["m_ShowUnitySplashLogo"].AsBool = !showUnityLogo; // false
+            buildSettingsBase["isNoWatermarkBuild"].AsBool = !noWatermark;
 
             // Iterate over "m_SplashScreenLogos" to find Unity splash screen logo
             AssetTypeValueField? unityLogo = null;
