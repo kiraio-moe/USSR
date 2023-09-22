@@ -2,6 +2,7 @@
 
 ## Table of Contents
 
+- [Announcement](#announcement)
 - [Overview](#overview)
 - [Requirements](#requirements)
 - [Usages](#usages)
@@ -16,9 +17,22 @@
 - [Disclaimer](#disclaimer)
 - [FAQs](#faqs)
 
+## Announcement
+
+On the latest updated policy for Unity Runtime Fee on 22 September 2023 (<https://unity.com/pricing-updates>), one of the key updates is Unity has decided to make the splash screen optional. Starting with Unity 2024 LTS (currently referred to as the 2023 LTS) or later.
+
+> ...and we will remove the requirement to use the Made with Unity splash screen (starting with the LTS version releasing in 2024, currently referred to as the 2023 LTS, or later).
+
+If you developing a new game, you may want to switch to those Unity version.
+
+Does it impact the development of Unity Splash Screen Remover (USSR)? Not really.  
+I myself still use the old Unity version (Unity 2020), so the development of USSR will still be active until I decided to switch to the latest Unity version and that's not anytime soon.
+
+So, what's your thoughts?
+
 ## Overview
 
-The Unity Splash Screen Remover is a Command-Line Interface (CLI) tool designed to remove the Unity splash screen logo + [watermark](https://forum.unity.com/threads/i-am-using-personal-but-there-is-trial-version-water-mark-after-build.591610/#post-3975343) from Unity-built games.
+The Unity Splash Screen Remover (USSR) is a Command-Line Interface (CLI) tool designed to remove the Unity splash screen logo + [watermark](https://forum.unity.com/threads/i-am-using-personal-but-there-is-trial-version-water-mark-after-build.591610/#post-3975343) from Unity-built games.
 
 The tool is an implementation of the guide available at <https://github.com/kiraio-moe/remove-unity-splash-screen>. By utilizing this tool, you can easily remove Unity splash screen logo from your games and keep your own logo displayed.
 
