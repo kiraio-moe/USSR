@@ -167,6 +167,7 @@ namespace USSR
             else
             {
                 AnsiConsole.MarkupLine("[red]( ERROR )[/] Unknown/Unsupported file type!");
+                Console.WriteLine();
                 goto ChooseAction;
             }
 
@@ -259,7 +260,10 @@ namespace USSR
             // AssetsFile? assetFile = assetFileInstance?.file;
 
             AnsiConsole.MarkupLine("( INFO ) Loading asset class types database...");
-            assetsManager.LoadClassDatabaseFromPackage(assetFileInstance?.file.Metadata.UnityVersion);
+            if (assetFileInstance != null)
+                assetsManager.LoadClassDatabaseFromPackage(assetFileInstance?.file.Metadata.UnityVersion);
+            else
+                AnsiConsole.MarkupLine("[red]( ERROR )[/] Unable to load asset class types database!");
 
             // List<AssetFileInfo>? buildSettingsInfo = assetFile?.GetAssetsOfType(
             //     AssetClassID.BuildSettings
@@ -395,19 +399,25 @@ namespace USSR
             //         )
             //     };
 
-            List<AssetsReplacer>? assetsReplacer = new();
-
-            switch (choiceIndex)
+            if (assetFileInstance != null)
             {
-                case 0:
-                    assetsReplacer = RemoveSplashScreen(assetsManager, assetFileInstance);
-                    break;
-                case 1:
-                    assetsReplacer = RemoveWatermark(assetsManager, assetFileInstance);
-                    break;
+
+                List<AssetsReplacer>? assetsReplacer = null;
+
+                switch (choiceIndex)
+                {
+                    case 0:
+                        assetsReplacer = RemoveSplashScreen(assetsManager, assetFileInstance);
+                        break;
+                    case 1:
+                        assetsReplacer = RemoveWatermark(assetsManager, assetFileInstance);
+                        break;
+                }
+
+                if (assetsReplacer != null)
+                    WriteChanges(selectedFile, assetFileInstance, bundleFileInstance, assetsReplacer);
             }
 
-            WriteChanges(selectedFile, assetFileInstance, bundleFileInstance, assetsReplacer);
             assetsManager.UnloadAll(true);
             Utility.CleanUp(temporaryFiles);
 
@@ -545,15 +555,17 @@ namespace USSR
             try
             {
                 AnsiConsole.MarkupLineInterpolated($"( INFO ) Loading class types package: [green]{tpkFile}[/]...");
-                assetsManager.LoadClassPackage(path: tpkFile);
+
+                if (File.Exists(tpkFile))
+                    assetsManager.LoadClassPackage(path: tpkFile);
+                else
+                    AnsiConsole.MarkupLineInterpolated($"( ERROR ) TPK file not found: [green]{tpkFile}[/]...");
             }
             catch (Exception ex)
             {
                 AnsiConsole.MarkupLine(
-                    $"[red]( ERROR )[/] Class types package not found! {ex.Message}"
+                    $"[red]( ERROR )[/] Unable to load class types package! {ex.Message}"
                 );
-                Console.ReadLine();
-                return;
             }
         }
 
@@ -644,7 +656,7 @@ namespace USSR
                 else
                 {
                     AnsiConsole.MarkupLineInterpolated(
-                        $"No file found: [red]{new TextPath(sourceFile)}[/]"
+                        $"[red]( ERROR )[/] File not found: {sourceFile}"
                     );
                     return null;
                 }
@@ -703,7 +715,7 @@ namespace USSR
         //     }
         // }
 
-        static List<AssetsReplacer> RemoveSplashScreen(
+        static List<AssetsReplacer>? RemoveSplashScreen(
             AssetsManager assetsManager,
             AssetsFileInstance? assetFileInstance
         )
@@ -730,11 +742,13 @@ namespace USSR
             bool hasProVersion = buildSettingsBase["hasPROVersion"].AsBool;
             bool showUnityLogo = playerSettingsBase["m_ShowUnitySplashLogo"].AsBool;
 
+            AnsiConsole.MarkupLine("( INFO ) Removing Unity splash screen...");
+
             // Check if the splash screen have been removed
             if (hasProVersion && !showUnityLogo)
             {
-                AnsiConsole.MarkupLine("[yellow]Unity splash screen have been removed![/]");
-                goto Dispose;
+                AnsiConsole.MarkupLine("[yellow]( WARN )[/] Unity splash screen have been removed!");
+                return null;
             }
 
             AnsiConsole.MarkupLine(
@@ -759,8 +773,6 @@ namespace USSR
             {
                 AnsiConsole.WriteException(ex);
             }
-
-            AnsiConsole.MarkupLine("( INFO ) Removing Unity splash screen...");
 
             AnsiConsole.MarkupLineInterpolated($"( INFO ) hasProVersion = [green]{!hasProVersion}[/] | m_ShowUnitySplashLogo = [green]{!showUnityLogo}[/]");
 
@@ -818,7 +830,7 @@ namespace USSR
                 AnsiConsole.MarkupLine(
                     "Looks like USSR [red]can'\t detect the Unity splash screen[/] and at the same time [red]you didn'\t provide any value to the input[/] to help USSR find the splash screen. [yellow]Try again and fill in the input.[/]"
                 );
-                goto Dispose;
+                return null;
             }
 
             /*
@@ -835,10 +847,6 @@ namespace USSR
                 new AssetsReplacerFromMemory(assetFile, buildSettingsInfo?[0], buildSettingsBase),
                 new AssetsReplacerFromMemory(assetFile, playerSettingsInfo?[0], playerSettingsBase)
             };
-
-            Dispose:
-            assetsManager.UnloadAll(true);
-            return new();
         }
 
         static List<AssetsReplacer>? RemoveWatermark(AssetsManager assetsManager, AssetsFileInstance? assetFileInstance)
@@ -851,8 +859,15 @@ namespace USSR
                 List<AssetFileInfo>? buildSettingsInfo = assetFile?.GetAssetsOfType(AssetClassID.BuildSettings);
                 AssetTypeValueField buildSettingsBase = assetsManager.GetBaseField(assetFileInstance, buildSettingsInfo?[0]);
 
-                AnsiConsole.MarkupLineInterpolated($"( INFO ) isNoWatermarkBuild = [green]true[/]");
-                buildSettingsBase["isNoWatermarkBuild"].AsBool = true;
+                bool noWatermark = buildSettingsBase["isNoWatermarkBuild"].AsBool;
+                if (noWatermark)
+                {
+                    AnsiConsole.MarkupLine("[yellow]( WARN )[/] Watermark have been removed!");
+                    return null;
+                }
+
+                AnsiConsole.MarkupLineInterpolated($"( INFO ) isNoWatermarkBuild = [green]{!noWatermark}[/]");
+                buildSettingsBase["isNoWatermarkBuild"].AsBool = !noWatermark;
 
                 AnsiConsole.MarkupLine("( INFO ) [green]Watermark successfully removed.[/]");
                 return new()

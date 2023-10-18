@@ -23,7 +23,7 @@ namespace USSR.Utilities
                 {
                     if (sourceFileSignature[i] != fileSignature[i])
                     {
-                        AnsiConsole.MarkupLine("[red]Unknown/Unsupported[/] file type!");
+                        // AnsiConsole.MarkupLine("[red]Unknown/Unsupported[/] file type!");
                         return false;
                     }
                 }
@@ -78,7 +78,6 @@ namespace USSR.Utilities
                 AnsiConsole.MarkupLineInterpolated($"( INFO ) Backup [green]{Path.GetFileNameWithoutExtension(sourceFile)}[/] as [green]{sourceFile}[/]...");
                 CloneFile(sourceFile, backupFile);
             }
-            else backupFile = string.Empty;
 
             return backupFile;
         }
@@ -91,6 +90,8 @@ namespace USSR.Utilities
         {
             if (paths?.Count < 1)
                 return;
+
+            AnsiConsole.MarkupLine("( INFO ) Cleaning up temporary files...");
 
             foreach (string path in paths)
             {
