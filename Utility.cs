@@ -65,7 +65,7 @@ namespace USSR.Utilities
         }
 
         /// <summary>
-        /// Backup a file. If it's already exist, skip.
+        /// Backup a fileas ".bak". If it's already exist, skip.
         /// </summary>
         /// <param name="sourceFile"></param>
         /// <returns></returns>
@@ -75,10 +75,10 @@ namespace USSR.Utilities
 
             if (!File.Exists(backupFile))
             {
-                AnsiConsole.MarkupLine("Backup original file...");
-
+                AnsiConsole.MarkupLineInterpolated($"( INFO ) Backup [green]{Path.GetFileNameWithoutExtension(sourceFile)}[/] as [green]{sourceFile}[/]...");
                 CloneFile(sourceFile, backupFile);
             }
+            else backupFile = string.Empty;
 
             return backupFile;
         }
