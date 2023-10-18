@@ -5,11 +5,9 @@ using NativeFileDialogSharp;
 using Spectre.Console;
 using USSR.Utilities;
 
-//using System.Linq;
-
-namespace USSR
+namespace USSR.Core
 {
-    public class Program
+    public class USSR
     {
         const string VERSION = "1.2.4";
         const string ASSET_CLASS_DB = "classdata.tpk";
@@ -77,7 +75,48 @@ namespace USSR
 
         // Luckily, Unity have customized Brotli specification, so we can detect it.
         // Ref: https://github.com/google/brotli/issues/867#issue-739852869
-        static readonly byte[] unityBrotliMagic = { 0x6B, 0x8D, 0x00, 0x55, 0x6E, 0x69, 0x74, 0x79, 0x57, 0x65, 0x62, 0x20, 0x43, 0x6F, 0x6D, 0x70, 0x72, 0x65, 0x73, 0x73, 0x65, 0x64, 0x20, 0x43, 0x6F, 0x6E, 0x74, 0x65, 0x6E, 0x74, 0x20, 0x28, 0x62, 0x72, 0x6F, 0x74, 0x6C, 0x69, 0x29 };
+        static readonly byte[] unityBrotliMagic =
+        {
+            0x6B,
+            0x8D,
+            0x00,
+            0x55,
+            0x6E,
+            0x69,
+            0x74,
+            0x79,
+            0x57,
+            0x65,
+            0x62,
+            0x20,
+            0x43,
+            0x6F,
+            0x6D,
+            0x70,
+            0x72,
+            0x65,
+            0x73,
+            0x73,
+            0x65,
+            0x64,
+            0x20,
+            0x43,
+            0x6F,
+            0x6E,
+            0x74,
+            0x65,
+            0x6E,
+            0x74,
+            0x20,
+            0x28,
+            0x62,
+            0x72,
+            0x6F,
+            0x74,
+            0x6C,
+            0x69,
+            0x29
+        };
 
         enum AssetTypes
         {
@@ -85,6 +124,7 @@ namespace USSR
             Bundle,
             WebData
         }
+
         static AssetTypes assetType;
 
         static void Main(string[] args)
@@ -104,8 +144,10 @@ namespace USSR
             );
             int choiceIndex = Array.FindIndex(actionList, item => item == actionPrompt);
 
-            string? selectedFile = string.Empty, originalFileName = string.Empty;
-            string? webDataFile = string.Empty, unpackedWebDataDirectory = string.Empty;
+            string? selectedFile = string.Empty,
+                originalFileName = string.Empty;
+            string? webDataFile = string.Empty,
+                unpackedWebDataDirectory = string.Empty;
 
             switch (choiceIndex)
             {
@@ -113,17 +155,23 @@ namespace USSR
                 case 1:
                     // Unfortunately, only one filter are supported.
                     // Instead of working around with this, we just need to manually validate by reading the file header later.
-                    DialogResult filePicker = Dialog.FileOpen(null, ussrExec);
+                    DialogResult filePicker = Dialog.FileOpen(
+                        null,
+                        Path.GetDirectoryName(Utility.GetLastOpenedFile())
+                    );
 
                     if (filePicker.IsCancelled)
                         goto ChooseAction;
                     else if (filePicker.IsError)
                     {
-                        AnsiConsole.MarkupLine("[red]( ERROR )[/]Unable to open File Picker dialog!");
+                        AnsiConsole.MarkupLine(
+                            "[red]( ERROR )[/]Unable to open File Picker dialog!"
+                        );
                         goto ChooseAction;
                     }
 
                     selectedFile = originalFileName = filePicker.Path;
+                    Utility.SaveLastOpenedFile(selectedFile);
                     break;
                 case 2:
                     AnsiConsole.MarkupLine("Have a nice day ;)");
@@ -131,7 +179,10 @@ namespace USSR
                     return;
             }
 
-            webDataFile = Path.Combine(Path.GetDirectoryName(selectedFile) ?? string.Empty, Path.GetFileNameWithoutExtension(selectedFile));
+            webDataFile = Path.Combine(
+                Path.GetDirectoryName(selectedFile) ?? string.Empty,
+                Path.GetFileNameWithoutExtension(selectedFile)
+            );
 
             if (Utility.ValidateFile(selectedFile, ggmMagic))
             {
@@ -177,12 +228,13 @@ namespace USSR
 
             // List of files to be deleted later
             List<string> temporaryFiles = new();
-            string inspectedFile = Utility.BackupOnlyOnce(selectedFile);
 
             if (assetType == AssetTypes.WebData)
             {
                 // unpackedWebDataDirectory = UnityWebDataHelper.UnpackWebDataToFile(webDataFile);
-                temporaryFiles.Add(unpackedWebDataDirectory = UnityWebDataHelper.UnpackWebDataToFile(webDataFile));
+                temporaryFiles.Add(
+                    unpackedWebDataDirectory = UnityWebDataHelper.UnpackWebDataToFile(webDataFile)
+                );
 
                 // Find and select "data.unity3d" or "globalgamemanagers"
                 selectedFile = Utility.FindRequiredAsset(unpackedWebDataDirectory);
@@ -191,217 +243,41 @@ namespace USSR
             AssetsFileInstance? assetFileInstance = null;
             BundleFileInstance? bundleFileInstance = null;
             FileStream? bundleStream = null;
+            string tempFile = Utility.CloneFile(selectedFile, $"{selectedFile}.temp");
+            temporaryFiles.Add(tempFile);
+            temporaryFiles.Add($"{tempFile}.unpacked"); // unpacked bundle file
 
             switch (assetType)
             {
                 case AssetTypes.Asset:
-                    assetFileInstance = LoadAssetFileInstance(inspectedFile);
+                    assetFileInstance = LoadAssetFileInstance(tempFile, assetsManager);
                     break;
                 case AssetTypes.Bundle:
-                    bundleFileInstance = LoadBundleFileInstance(inspectedFile, bundleStream);
-                    assetFileInstance = LoadAssetFileInstance(inspectedFile, bundleFileInstance);
+                    bundleFileInstance = LoadBundleFileInstance(
+                        tempFile,
+                        assetsManager,
+                        bundleStream
+                    );
+                    assetFileInstance = LoadAssetFileInstance(
+                        tempFile,
+                        assetsManager,
+                        bundleFileInstance
+                    );
                     break;
             }
 
-            // try
-            // {
-            //     if (File.Exists(globalgamemanagersFile))
-            //     {
-            //         AnsiConsole.MarkupLine("Found [green]globalgamemanagers[/].");
-
-            //         // Make temporary copy, so the original file ready to be overwritten
-            //         string? tempFile = Utility.CloneFile(
-            //             globalgamemanagersFile,
-            //             $"{globalgamemanagersFile}.temp"
-            //         );
-            //         temporaryFiles.Add(tempFile);
-
-            //         AnsiConsole.MarkupLine("Loading [green]globalgamemanagers[/] and it's dependencies...");
-            //         assetFileInstance = assetsManager.LoadAssetsFile(tempFile, true);
-            //     }
-
-            //     if (File.Exists(unity3dFile))
-            //     {
-            //         AnsiConsole.MarkupLine("Found [green]data.unity3d[/].");
-
-            //         string? tempFile = Utility.CloneFile(
-            //             unity3dFile,
-            //             $"{unity3dFile}.temp"
-            //         );
-            //         temporaryFiles.Add(tempFile);
-
-            //         AnsiConsole.MarkupLine("Unpacking [green]data.unity3d[/] file...");
-            //         string? unpackedBundleFile = $"{unity3dFile}.unpacked";
-            //         temporaryFiles.Add(unpackedBundleFile);
-
-            //         bundleStream = File.Open(unpackedBundleFile, FileMode.Create);
-            //         bundleFileInstance = assetsManager.LoadBundleFile(tempFile, false);
-            //         bundleFileInstance.file = BundleHelper.UnpackBundleToStream(
-            //             bundleFileInstance.file,
-            //             bundleStream
-            //         );
-
-            //         AnsiConsole.MarkupLine("Loading [green]globalgamemanagers[/] and it's dependencies...");
-            //         assetFileInstance = assetsManager.LoadAssetsFileFromBundle(
-            //             bundleFileInstance,
-            //             0,
-            //             true
-            //         );
-            //     }
-            // }
-            // catch (Exception ex)
-            // {
-            //     AnsiConsole.MarkupLine($"Error loading asset file. {ex.Message}");
-            //     Console.ReadLine();
-            //     return;
-            // }
-
-            // AssetBundleFile? bundleFile = bundleFileInstance?.file;
-            // AssetsFile? assetFile = assetFileInstance?.file;
-
             AnsiConsole.MarkupLine("( INFO ) Loading asset class types database...");
             if (assetFileInstance != null)
-                assetsManager.LoadClassDatabaseFromPackage(assetFileInstance?.file.Metadata.UnityVersion);
+                assetsManager.LoadClassDatabaseFromPackage(
+                    assetFileInstance?.file.Metadata.UnityVersion
+                );
             else
-                AnsiConsole.MarkupLine("[red]( ERROR )[/] Unable to load asset class types database!");
-
-            // List<AssetFileInfo>? buildSettingsInfo = assetFile?.GetAssetsOfType(
-            //     AssetClassID.BuildSettings
-            // );
-            // // Get BuildSettings base field
-            // AssetTypeValueField? buildSettingsBase = assetsManager.GetBaseField(
-            //     assetFileInstance,
-            //     buildSettingsInfo?[0]
-            // );
-
-            // List<AssetFileInfo>? playerSettingsInfo = assetFile?.GetAssetsOfType(
-            //     AssetClassID.PlayerSettings
-            // );
-            // // Get PlayerSettings base field
-            // AssetTypeValueField? playerSettingsBase = assetsManager.GetBaseField(
-            //     assetFileInstance,
-            //     playerSettingsInfo?[0]
-            // );
-            // Get m_SplashScreenLogos field as array
-            // AssetTypeValueField? splashScreenLogos = playerSettingsBase[
-            //     "m_SplashScreenLogos.Array"
-            // ];
-
-            // Get required fields to remove the splash screen
-            // bool isProVersion = buildSettingsBase["hasPROVersion"].AsBool;
-            // bool showUnityLogo = playerSettingsBase["m_ShowUnitySplashLogo"].AsBool;
-            // bool noWatermark = buildSettingsBase["isNoWatermarkBuild"].AsBool;
-
-            // if (isProVersion && !showUnityLogo)
-            // {
-            //     AnsiConsole.MarkupLine(
-            //         "[yellow]Unity splash screen logo didn't exist or already removed. Nothing to do.[/]"
-            //     );
-
-            //     assetsManager.UnloadAll(true);
-            //     Utility.CleanUp(temporaryFiles);
-
-            //     // if (isWebGL)
-            //     // {
-            //     //     Directory.Delete(gameDataDirectory, true);
-            //     //     if (webGLCompressionType != ".data")
-            //     //         File.Delete(rawWebGLFile);
-            //     // }
-
-            //     Console.ReadLine();
-            //     return;
-            // }
-
-            // AnsiConsole.MarkupLine(
-            //     "[yellow]Sometimes USSR can\'t automatically detect Unity splash screen logo and it\'s leading to accidentally removing your own logo.[/] To tackle this, USSR needed information about \"Made With Unity\" logo duration."
-            // );
-            // AnsiConsole.MarkupLine(
-            //     "[red]Please make a difference with the logo duration when you build your game! If your logo and Unity logo have same duration, USSR will remove both of them.[/] If no value provided, USSR will use it\'s own way to detect it and [red]may removing your own logo[/]."
-            // );
-            // AnsiConsole.Markup("[green](Optional)[/] Enter Unity splash screen logo duration: ");
-
-            // int.TryParse(
-            //     Console.ReadLine(),
-            //     System.Globalization.NumberStyles.Integer,
-            //     null,
-            //     out int logoDuration
-            // );
-
-            // AnsiConsole.MarkupLine("Removing Unity splash screen...");
-
-            // Remove Unity splash screen by flipping these boolean fields
-            // buildSettingsBase["hasPROVersion"].AsBool = !isProVersion; // true
-            // playerSettingsBase["m_ShowUnitySplashLogo"].AsBool = !showUnityLogo; // false
-            // buildSettingsBase["isNoWatermarkBuild"].AsBool = !noWatermark;
-
-            // Iterate over "m_SplashScreenLogos" to find Unity splash screen logo
-            // AssetTypeValueField? unityLogo = null;
-
-            // foreach (AssetTypeValueField data in splashScreenLogos)
-            // {
-            //     // Get the Sprite asset
-            //     AssetTypeValueField? logoPointer = data?["logo"];
-            //     // Get the external asset
-            //     AssetExternal logoExtInfo = assetsManager.GetExtAsset(
-            //         assetFileInstance,
-            //         logoPointer
-            //     );
-
-            //     if (logoExtInfo.baseField != null)
-            //     {
-            //         // Get the base field
-            //         AssetTypeValueField? logoBase = logoExtInfo.baseField;
-            //         string? logoName = logoBase["m_Name"].AsString;
-
-            //         // If it's Unity splash screen logo
-            //         if (logoName.Contains("UnitySplash-cube"))
-            //             unityLogo = data;
-            //     }
-            //     else
-            //     {
-            //         /*
-            //         * IDK why AssetsTools won't load "UnitySplash-cube"
-            //         * external asset while in Bundle file. So, we can
-            //         * check it's name and remove it like before.
-            //         *
-            //         * Alternatively, we can still find it by using
-            //         * logo duration or checking if the base field is null.
-            //         */
-            //         if (data?["duration"].AsInt == logoDuration)
-            //             unityLogo = data;
-            //         else
-            //             unityLogo = data;
-            //     }
-            // }
-
-            // /*
-            // * Remove "UnitySplash-cube" to completely remove
-            // * Unity splash screen logo. So, Only our logo remained.
-            // */
-            // if (unityLogo != null)
-            //     splashScreenLogos?.Children.Remove(unityLogo);
-
-            // AnsiConsole.MarkupLine("[green]Done.[/]");
-
-            // // Store modified base fields
-            // List<AssetsReplacer>? assetsReplacers =
-            //     new()
-            //     {
-            //         new AssetsReplacerFromMemory(
-            //             assetFile,
-            //             buildSettingsInfo?[0],
-            //             buildSettingsBase
-            //         ),
-            //         new AssetsReplacerFromMemory(
-            //             assetFile,
-            //             playerSettingsInfo?[0],
-            //             playerSettingsBase
-            //         )
-            //     };
+                AnsiConsole.MarkupLine(
+                    "[red]( ERROR )[/] Unable to load asset class types database!"
+                );
 
             if (assetFileInstance != null)
             {
-
                 List<AssetsReplacer>? assetsReplacer = null;
 
                 switch (choiceIndex)
@@ -415,81 +291,20 @@ namespace USSR
                 }
 
                 if (assetsReplacer != null)
-                    WriteChanges(selectedFile, assetFileInstance, bundleFileInstance, assetsReplacer);
+                {
+                    Utility.BackupOnlyOnce(selectedFile);
+                    WriteChanges(
+                        selectedFile,
+                        assetFileInstance,
+                        bundleFileInstance,
+                        assetsReplacer
+                    );
+                }
             }
 
-            assetsManager.UnloadAll(true);
+            bundleStream?.Close();
+            assetsManager?.UnloadAll(true);
             Utility.CleanUp(temporaryFiles);
-
-            // try
-            // {
-            //     // Write modified asset file to disk
-            //     AnsiConsole.MarkupLine("Writing changes to disk...");
-
-            //     if (File.Exists(globalgamemanagersFile))
-            //     {
-            //         Utility.BackupOnlyOnce(globalgamemanagersFile);
-
-            //         using AssetsFileWriter writer = new(globalgamemanagersFile);
-            //         assetFile?.Write(writer, 0, assetsReplacers);
-            //     }
-
-            //     if (File.Exists(unity3dFile))
-            //     {
-            //         Utility.BackupOnlyOnce(unity3dFile);
-
-            //         List<BundleReplacer> bundleReplacers =
-            //             new()
-            //             {
-            //                 new BundleReplacerFromAssets(
-            //                     assetFileInstance?.name,
-            //                     null,
-            //                     assetFile,
-            //                     assetsReplacers
-            //                 )
-            //             };
-
-            //         string uncompressedBundleFile = $"{unity3dFile}.uncompressed";
-            //         temporaryFiles.Add(uncompressedBundleFile);
-
-                    // Write modified assets to uncompressed asset bundle
-                //     using (AssetsFileWriter writer = new(uncompressedBundleFile))
-                //         bundleFile?.Write(writer, bundleReplacers);
-
-                //     // Compress asset bundle
-                //     using (
-                //         FileStream? uncompressedBundleStream = File.OpenRead(uncompressedBundleFile)
-                //     )
-                //     {
-                //         AnsiConsole.MarkupLine("Compressing [green]data.unity3d[/] file...");
-
-                //         AssetBundleFile? uncompressedBundle = new();
-                //         uncompressedBundle.Read(new AssetsFileReader(uncompressedBundleStream));
-
-                //         using AssetsFileWriter writer = new(unity3dFile);
-                //         uncompressedBundle.Pack(
-                //             uncompressedBundle.Reader,
-                //             writer,
-                //             AssetBundleCompressionType.LZ4
-                //         );
-                //     }
-                // }
-            // }
-            // catch (Exception ex)
-            // {
-            //     AnsiConsole.MarkupLine(
-            //         $"[red]Failed to save file![/] {ex.Message} Make sure to close any processes that use it."
-            //     );
-            //     Console.ReadLine();
-            //     return;
-            // }
-
-            // // Cleanup temporary files
-            // AnsiConsole.MarkupLine("Cleaning up temporary files...");
-            // bundleStream?.Close();
-            // assetsManager.UnloadAllBundleFiles();
-            // assetsManager.UnloadAllAssetsFiles(true);
-            // Utility.CleanUp(temporaryFiles);
 
             // if (isWebGL)
             // {
@@ -554,12 +369,16 @@ namespace USSR
         {
             try
             {
-                AnsiConsole.MarkupLineInterpolated($"( INFO ) Loading class types package: [green]{tpkFile}[/]...");
+                AnsiConsole.MarkupLineInterpolated(
+                    $"( INFO ) Loading class types package: [green]{tpkFile}[/]..."
+                );
 
                 if (File.Exists(tpkFile))
                     assetsManager.LoadClassPackage(path: tpkFile);
                 else
-                    AnsiConsole.MarkupLineInterpolated($"( ERROR ) TPK file not found: [green]{tpkFile}[/]...");
+                    AnsiConsole.MarkupLineInterpolated(
+                        $"( ERROR ) TPK file not found: [green]{tpkFile}[/]..."
+                    );
             }
             catch (Exception ex)
             {
@@ -574,26 +393,26 @@ namespace USSR
         /// </summary>
         /// <param name="sourceFile"></param>
         /// <returns></returns>
-        static AssetsFileInstance? LoadAssetFileInstance(string sourceFile)
+        static AssetsFileInstance? LoadAssetFileInstance(
+            string sourceFile,
+            AssetsManager assetsManager
+        )
         {
             try
             {
                 if (File.Exists(sourceFile))
-                {
-                    AssetsManager assetsManager = new();
                     return assetsManager.LoadAssetsFile(sourceFile, true);
-                }
                 else
                 {
                     AnsiConsole.MarkupLineInterpolated(
-                        $"No file found: [red]{new TextPath(sourceFile)}[/]"
+                        $"[red]( ERROR )[/] File not found: [red]{sourceFile}[/]"
                     );
                     return null;
                 }
             }
             catch (Exception ex)
             {
-                AnsiConsole.WriteException(ex, ExceptionFormats.ShowLinks);
+                AnsiConsole.WriteException(ex);
                 return null;
             }
         }
@@ -602,24 +421,23 @@ namespace USSR
         /// Load AssetFileInstance from <paramref name="bundleFileInstance"/>.
         /// </summary>
         /// <param name="sourceFile"></param>
+        /// <param name="assetsManager"></param>
         /// <param name="bundleFileInstance"></param>
         /// <returns></returns>
         static AssetsFileInstance? LoadAssetFileInstance(
             string sourceFile,
+            AssetsManager assetsManager,
             BundleFileInstance? bundleFileInstance
         )
         {
             try
             {
                 if (File.Exists(sourceFile))
-                {
-                    AssetsManager assetsManager = new();
                     return assetsManager.LoadAssetsFileFromBundle(bundleFileInstance, 0, true);
-                }
                 else
                 {
                     AnsiConsole.MarkupLineInterpolated(
-                        $"No file found: [red]{new TextPath(sourceFile)}[/]"
+                        $"[red]( ERROR )[/] File not found: [red]{sourceFile}[/]"
                     );
                     return null;
                 }
@@ -633,6 +451,7 @@ namespace USSR
 
         static BundleFileInstance? LoadBundleFileInstance(
             string sourceFile,
+            AssetsManager assetsManager,
             FileStream? unpackedSourceFileStream
         )
         {
@@ -640,12 +459,11 @@ namespace USSR
             {
                 if (File.Exists(sourceFile))
                 {
-                    AssetsManager assetsManager = new();
-
                     BundleFileInstance bundleFileInstance = assetsManager.LoadBundleFile(
                         sourceFile,
                         false
                     );
+                    unpackedSourceFileStream = File.Open($"{sourceFile}.unpacked", FileMode.Create);
                     bundleFileInstance.file = BundleHelper.UnpackBundleToStream(
                         bundleFileInstance.file,
                         unpackedSourceFileStream
@@ -656,64 +474,17 @@ namespace USSR
                 else
                 {
                     AnsiConsole.MarkupLineInterpolated(
-                        $"[red]( ERROR )[/] File not found: {sourceFile}"
+                        $"[red]( ERROR )[/] File not found: [red]{sourceFile}[/]"
                     );
                     return null;
                 }
             }
             catch (Exception ex)
             {
-                AnsiConsole.WriteException(ex, ExceptionFormats.ShowLinks);
+                AnsiConsole.WriteException(ex);
                 return null;
             }
         }
-
-        // static AssetsFileInstance? LoadAssetFile(AssetsManager assetsManager, string sourceFile, AssetTypes assetType, string tpkFile)
-        // {
-        //     LoadClassPackage(assetsManager, tpkFile);
-
-        //     BundleFileInstance bundleFileInstance;
-        //     FileStream bundleStream;
-
-        //     try
-        //     {
-        //         switch (assetType)
-        //         {
-        //             case AssetTypes.Asset:
-        //                 AnsiConsole.MarkupLineInterpolated(
-        //                     $"Loading {sourceFile} asset and it\'s dependencies..."
-        //                 );
-
-        //                 return assetsManager.LoadAssetsFile(sourceFile, true);
-        //             case AssetTypes.Bundle:
-        //                 AnsiConsole.MarkupLineInterpolated($"Unpacking {sourceFile}...");
-
-        //                 string unpackedTempFile = $"{sourceFile}.unpacked";
-        //                 tempFiles.Add(unpackedTempFile);
-
-        //                 bundleStream = File.Open(unpackedTempFile, FileMode.Create);
-        //                 bundleFileInstance = assetsManager.LoadBundleFile(sourceFile, false);
-        //                 bundleFileInstance.file = BundleHelper.UnpackBundleToStream(
-        //                     bundleFileInstance.file,
-        //                     bundleStream
-        //                 );
-
-        //                 AnsiConsole.MarkupLineInterpolated(
-        //                     $"Loading {sourceFile} asset and it\'s dependencies..."
-        //                 );
-        //                 return assetsManager.LoadAssetsFileFromBundle(
-        //                     bundleFileInstance,
-        //                     0,
-        //                     true
-        //                 );
-        //         }
-        //     }
-        //     catch (Exception ex)
-        //     {
-        //         AnsiConsole.WriteException(ex);
-        //         return null;
-        //     }
-        // }
 
         static List<AssetsReplacer>? RemoveSplashScreen(
             AssetsManager assetsManager,
@@ -747,7 +518,9 @@ namespace USSR
             // Check if the splash screen have been removed
             if (hasProVersion && !showUnityLogo)
             {
-                AnsiConsole.MarkupLine("[yellow]( WARN )[/] Unity splash screen have been removed!");
+                AnsiConsole.MarkupLine(
+                    "[yellow]( WARN )[/] Unity splash screen have been removed!"
+                );
                 return null;
             }
 
@@ -774,7 +547,9 @@ namespace USSR
                 AnsiConsole.WriteException(ex);
             }
 
-            AnsiConsole.MarkupLineInterpolated($"( INFO ) hasProVersion = [green]{!hasProVersion}[/] | m_ShowUnitySplashLogo = [green]{!showUnityLogo}[/]");
+            AnsiConsole.MarkupLineInterpolated(
+                $"( INFO ) Set hasProVersion = [green]{!hasProVersion}[/] | m_ShowUnitySplashLogo = [green]{!showUnityLogo}[/]"
+            );
 
             // Remove Unity splash screen by flipping these boolean fields
             buildSettingsBase["hasPROVersion"].AsBool = !hasProVersion; // true
@@ -828,7 +603,7 @@ namespace USSR
                     "[red]( ERROR )[/] Failed to remove Unity splash screen logo!"
                 );
                 AnsiConsole.MarkupLine(
-                    "Looks like USSR [red]can'\t detect the Unity splash screen[/] and at the same time [red]you didn'\t provide any value to the input[/] to help USSR find the splash screen. [yellow]Try again and fill in the input.[/]"
+                    "Looks like USSR [red]can\'t detect the Unity splash screen[/] and at the same time [red]you didn\'t provide any value to the input[/] to help USSR find the splash screen. [yellow]Try again and fill in the input.[/]"
                 );
                 return null;
             }
@@ -840,7 +615,9 @@ namespace USSR
             AnsiConsole.MarkupLineInterpolated($"( INFO ) Removing [red]UnitySplash-cube[/]...");
             splashScreenLogos?.Children.Remove(unityLogo);
 
-            AnsiConsole.MarkupLine("( INFO ) [green]Successfully removed the Unity splash screen.[/]");
+            AnsiConsole.MarkupLine(
+                "( INFO ) [green]Successfully removed the Unity splash screen.[/]"
+            );
 
             return new()
             {
@@ -849,15 +626,23 @@ namespace USSR
             };
         }
 
-        static List<AssetsReplacer>? RemoveWatermark(AssetsManager assetsManager, AssetsFileInstance? assetFileInstance)
+        static List<AssetsReplacer>? RemoveWatermark(
+            AssetsManager assetsManager,
+            AssetsFileInstance? assetFileInstance
+        )
         {
             try
             {
                 AnsiConsole.MarkupLine("( INFO ) Removing watermark...");
 
                 AssetsFile? assetFile = assetFileInstance?.file;
-                List<AssetFileInfo>? buildSettingsInfo = assetFile?.GetAssetsOfType(AssetClassID.BuildSettings);
-                AssetTypeValueField buildSettingsBase = assetsManager.GetBaseField(assetFileInstance, buildSettingsInfo?[0]);
+                List<AssetFileInfo>? buildSettingsInfo = assetFile?.GetAssetsOfType(
+                    AssetClassID.BuildSettings
+                );
+                AssetTypeValueField buildSettingsBase = assetsManager.GetBaseField(
+                    assetFileInstance,
+                    buildSettingsInfo?[0]
+                );
 
                 bool noWatermark = buildSettingsBase["isNoWatermarkBuild"].AsBool;
                 if (noWatermark)
@@ -866,58 +651,89 @@ namespace USSR
                     return null;
                 }
 
-                AnsiConsole.MarkupLineInterpolated($"( INFO ) isNoWatermarkBuild = [green]{!noWatermark}[/]");
+                AnsiConsole.MarkupLineInterpolated(
+                    $"( INFO ) Set isNoWatermarkBuild = [green]{!noWatermark}[/]"
+                );
                 buildSettingsBase["isNoWatermarkBuild"].AsBool = !noWatermark;
 
                 AnsiConsole.MarkupLine("( INFO ) [green]Watermark successfully removed.[/]");
                 return new()
                 {
-                    new AssetsReplacerFromMemory(assetFile, buildSettingsInfo?[0], buildSettingsBase)
+                    new AssetsReplacerFromMemory(
+                        assetFile,
+                        buildSettingsInfo?[0],
+                        buildSettingsBase
+                    )
                 };
             }
             catch (Exception ex)
             {
-                AnsiConsole.MarkupLineInterpolated($"( ERROR ) Unable to remove watermark! {ex.Message}");
+                AnsiConsole.MarkupLineInterpolated(
+                    $"( ERROR ) Unable to remove watermark! {ex.Message}"
+                );
                 return null;
             }
         }
 
-        static void WriteChanges(string modifiedFile, AssetsFileInstance? assetFileInstance, BundleFileInstance? bundleFileInstance, List<AssetsReplacer> assetsReplacer)
+        static void WriteChanges(
+            string modifiedFile,
+            AssetsFileInstance? assetFileInstance,
+            BundleFileInstance? bundleFileInstance,
+            List<AssetsReplacer> assetsReplacer
+        )
         {
             string uncompressedBundleFile = $"{modifiedFile}.uncompressed";
 
             try
             {
+                AnsiConsole.MarkupLineInterpolated(
+                    $"( INFO ) Writing changes to [green]{modifiedFile}[/]..."
+                );
+
                 switch (assetType)
                 {
                     case AssetTypes.Asset:
                     {
-                        AnsiConsole.MarkupLineInterpolated($"( INFO ) Writing changes to [green]{modifiedFile}[/]...");
                         using AssetsFileWriter writer = new(modifiedFile);
                         assetFileInstance?.file.Write(writer, 0, assetsReplacer);
                         break;
                     }
                     case AssetTypes.Bundle:
                     {
-                        List<BundleReplacer> bundleReplacer = new()
-                        {
-                            new BundleReplacerFromAssets(
-                                assetFileInstance?.name,
-                                null,
-                                assetFileInstance?.file,
-                                assetsReplacer
+                        List<BundleReplacer> bundleReplacer =
+                            new()
+                            {
+                                new BundleReplacerFromAssets(
+                                    assetFileInstance?.name,
+                                    null,
+                                    assetFileInstance?.file,
+                                    assetsReplacer
+                                )
+                            };
+
+                        // Write modified assets to uncompressed asset bundle
+                        using (AssetsFileWriter writer = new(uncompressedBundleFile))
+                            bundleFileInstance?.file.Write(writer, bundleReplacer);
+
+                        AnsiConsole.MarkupLineInterpolated(
+                            $"( INFO ) Compressing {modifiedFile}..."
+                        );
+                        using (
+                            FileStream uncompressedBundleStream = File.OpenRead(
+                                uncompressedBundleFile
                             )
-                        };
+                        )
+                        {
+                            AssetBundleFile uncompressedBundle = new();
+                            uncompressedBundle.Read(new AssetsFileReader(uncompressedBundleStream));
 
-                        using AssetsFileWriter writer = new(uncompressedBundleFile);
-                        bundleFileInstance?.file.Write(writer, bundleReplacer);
-
-                        using FileStream uncompressedBundleStream = File.OpenRead(uncompressedBundleFile);
-                        AssetBundleFile uncompressedBundle = new();
-                        uncompressedBundle.Read(new AssetsFileReader(uncompressedBundleStream));
-
-                        using AssetsFileWriter uncompressedWriter = new(modifiedFile);
-                        uncompressedBundle.Pack(uncompressedBundle.Reader, uncompressedWriter, AssetBundleCompressionType.LZ4);
+                            using AssetsFileWriter uncompressedWriter = new(modifiedFile);
+                            uncompressedBundle.Pack(
+                                uncompressedBundle.Reader,
+                                uncompressedWriter,
+                                AssetBundleCompressionType.LZ4
+                            );
+                        }
                         break;
                     }
                     case AssetTypes.WebData:

@@ -4,6 +4,8 @@ namespace USSR.Utilities
 {
     internal class Utility
     {
+        const string LAST_OPEN_FILE = "last_open.txt";
+
         /// <summary>
         /// Check the file signature if it's a valid file.
         /// </summary>
@@ -49,7 +51,7 @@ namespace USSR.Utilities
             {
                 if (!File.Exists(sourceFile))
                 {
-                    AnsiConsole.WriteLine("[red]Source file doesn\'t exist![/]");
+                    AnsiConsole.MarkupLineInterpolated($"[red]( ERROR )[/] Source file to duplicate doesn\'t exist: [red]{sourceFile}[/]");
                     return string.Empty;
                 }
 
@@ -75,7 +77,7 @@ namespace USSR.Utilities
 
             if (!File.Exists(backupFile))
             {
-                AnsiConsole.MarkupLineInterpolated($"( INFO ) Backup [green]{Path.GetFileNameWithoutExtension(sourceFile)}[/] as [green]{sourceFile}[/]...");
+                AnsiConsole.MarkupLineInterpolated($"( INFO ) Backup [green]{Path.GetFileName(sourceFile)}[/] as [green]{backupFile}[/]...");
                 CloneFile(sourceFile, backupFile);
             }
 
@@ -86,9 +88,9 @@ namespace USSR.Utilities
         /// Delete <paramref name="paths"/>.
         /// </summary>
         /// <param name="paths"></param>
-        internal static void CleanUp(List<string> paths)
+        internal static void CleanUp(List<string>? paths)
         {
-            if (paths?.Count < 1)
+            if (paths == null && paths?.Count < 1)
                 return;
 
             AnsiConsole.MarkupLine("( INFO ) Cleaning up temporary files...");
@@ -134,6 +136,49 @@ namespace USSR.Utilities
             }
 
             return path;
+        }
+
+        internal static void SaveLastOpenedFile(string filePath)
+        {
+            try
+            {
+                // Write the last opened directory to a text file
+                using StreamWriter writer = new(LAST_OPEN_FILE);
+                writer.WriteLine($"last_opened={filePath}");
+            }
+            catch (Exception ex)
+            {
+                AnsiConsole.WriteException(ex);
+            }
+        }
+
+        internal static string GetLastOpenedFile()
+        {
+            string lastOpenedDirectory = string.Empty;
+
+            if (!File.Exists(LAST_OPEN_FILE))
+                return lastOpenedDirectory;
+
+            try
+            {
+                // Read the last opened directory from the text file
+                using StreamReader reader = new(LAST_OPEN_FILE);
+                string? line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    if (line.StartsWith("last_opened="))
+                    {
+                        lastOpenedDirectory = line["last_opened=".Length..];
+                        break;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                AnsiConsole.WriteException(ex);
+            }
+
+            return lastOpenedDirectory;
         }
     }
 }
