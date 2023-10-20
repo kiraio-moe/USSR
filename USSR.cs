@@ -9,7 +9,7 @@ namespace USSR.Core
 {
     public class USSR
     {
-        const string VERSION = "1.2.4";
+        const string VERSION = "1.1.5";
         const string ASSET_CLASS_DB = "classdata.tpk";
         static readonly byte[] ggmMagic =
         {
@@ -121,8 +121,7 @@ namespace USSR.Core
         enum AssetTypes
         {
             Asset,
-            Bundle,
-            WebData
+            Bundle
         }
 
         static AssetTypes assetType;
@@ -148,6 +147,7 @@ namespace USSR.Core
                 originalFileName = string.Empty;
             string? webDataFile = string.Empty,
                 unpackedWebDataDirectory = string.Empty;
+            bool isWebGL = false;
 
             switch (choiceIndex)
             {
@@ -197,22 +197,23 @@ namespace USSR.Core
             else if (Utility.ValidateFile(selectedFile, unityWebDataMagic))
             {
                 AnsiConsole.MarkupLine("( INFO ) [green]UnityWebData[/] file selected.");
-                assetType = AssetTypes.WebData;
+                isWebGL = true;
+                webDataFile = selectedFile;
             }
             else if (Utility.ValidateFile(selectedFile, unityBrotliMagic))
             {
-                AnsiConsole.MarkupLine("( INFO ) [green]Unity Brotli[/] file selected.");
-                assetType = AssetTypes.WebData;
+                AnsiConsole.MarkupLine("( INFO ) [green]UnityWebData Brotli[/] file selected.");
+                isWebGL = true;
 
-                AnsiConsole.MarkupLineInterpolated($"Decompress [green]{selectedFile}[/]...");
+                AnsiConsole.MarkupLineInterpolated($"( INFO ) Decompress [green]{selectedFile}[/]...");
                 BrotliUtils.DecompressFile(selectedFile, webDataFile);
             }
             else if (Utility.ValidateFile(selectedFile, gzipMagic))
             {
-                AnsiConsole.MarkupLine("( INFO ) [green]GZip[/] file selected.");
-                assetType = AssetTypes.WebData;
+                AnsiConsole.MarkupLine("( INFO ) [green]UnityWebData GZip[/] file selected.");
+                isWebGL = true;
 
-                AnsiConsole.MarkupLineInterpolated($"Decompress [green]{selectedFile}[/]...");
+                AnsiConsole.MarkupLineInterpolated($"( INFO ) Decompress [green]{selectedFile}[/]...");
                 GZipUtils.DecompressFile(selectedFile, webDataFile);
             }
             else
@@ -228,22 +229,29 @@ namespace USSR.Core
 
             // List of files to be deleted later
             List<string> temporaryFiles = new();
+            string inspectedFile = selectedFile;
 
-            if (assetType == AssetTypes.WebData)
+            if (isWebGL)
             {
                 // unpackedWebDataDirectory = UnityWebDataHelper.UnpackWebDataToFile(webDataFile);
-                temporaryFiles.Add(
-                    unpackedWebDataDirectory = UnityWebDataHelper.UnpackWebDataToFile(webDataFile)
-                );
+                // Unpack WebData asset + add to temporary files
+                unpackedWebDataDirectory = UnityWebDataHelper.UnpackWebDataToFile(webDataFile);
 
                 // Find and select "data.unity3d" or "globalgamemanagers"
-                selectedFile = Utility.FindRequiredAsset(unpackedWebDataDirectory);
+                inspectedFile = Utility.FindRequiredAsset(unpackedWebDataDirectory);
+
+                // Determine the asset type
+                if (inspectedFile.Contains("globalgamemanagers"))
+                    assetType = AssetTypes.Asset;
+                else if (inspectedFile.Contains("unity3d"))
+                    assetType = AssetTypes.Bundle;
             }
 
             AssetsFileInstance? assetFileInstance = null;
             BundleFileInstance? bundleFileInstance = null;
             FileStream? bundleStream = null;
-            string tempFile = Utility.CloneFile(selectedFile, $"{selectedFile}.temp");
+
+            string tempFile = Utility.CloneFile(inspectedFile, $"{inspectedFile}.temp");
             temporaryFiles.Add(tempFile);
             temporaryFiles.Add($"{tempFile}.unpacked"); // unpacked bundle file
 
@@ -276,9 +284,10 @@ namespace USSR.Core
                     "[red]( ERROR )[/] Unable to load asset class types database!"
                 );
 
+            List<AssetsReplacer>? assetsReplacer = null;
+
             if (assetFileInstance != null)
             {
-                List<AssetsReplacer>? assetsReplacer = null;
 
                 switch (choiceIndex)
                 {
@@ -292,9 +301,10 @@ namespace USSR.Core
 
                 if (assetsReplacer != null)
                 {
-                    Utility.BackupOnlyOnce(selectedFile);
+                    Utility.BackupOnlyOnce(selectedFile); // Backup original file
+                    // Write changes to the asset file
                     WriteChanges(
-                        selectedFile,
+                        inspectedFile,
                         assetFileInstance,
                         bundleFileInstance,
                         assetsReplacer
@@ -306,9 +316,19 @@ namespace USSR.Core
             assetsManager?.UnloadAll(true);
             Utility.CleanUp(temporaryFiles);
 
+            // After writing the changes and cleaning the temporary files,
+            // it's time to pack the extracted WebData back
+            if (isWebGL)
+            {
+                // Only pack if the contents is modified
+                if (assetsReplacer != null)
+                    UnityWebDataHelper.PackFilesToWebData(unpackedWebDataDirectory, selectedFile);
+
+                Directory.Delete(unpackedWebDataDirectory, true);
+            }
+
             // if (isWebGL)
             // {
-            //     AnsiConsole.MarkupLine("Packing [green]WebGL[/] folder as [green]WebGL.data[/]...");
 
             //     // string? webGLdataPath = Path.Combine(execDirectory, "Build", "WebGL.data");
             //     UnityWebDataHelper.PackFilesToWebData(unpackedWebGLDirectory, rawWebGLFile);
@@ -519,7 +539,7 @@ namespace USSR.Core
             if (hasProVersion && !showUnityLogo)
             {
                 AnsiConsole.MarkupLine(
-                    "[yellow]( WARN )[/] Unity splash screen have been removed!"
+                    "[yellow]( WARN ) Unity splash screen have been removed![/]"
                 );
                 return null;
             }
@@ -603,7 +623,7 @@ namespace USSR.Core
                     "[red]( ERROR )[/] Failed to remove Unity splash screen logo!"
                 );
                 AnsiConsole.MarkupLine(
-                    "Looks like USSR [red]can\'t detect the Unity splash screen[/] and at the same time [red]you didn\'t provide any value to the input[/] to help USSR find the splash screen. [yellow]Try again and fill in the input.[/]"
+                    "[red]( ERROR )[/] Looks like USSR [red]can\'t detect the Unity splash screen[/] and at the same time [red]you didn\'t provide any value to the input[/] to help USSR find the splash screen. [yellow]Try again and fill in the input.[/]"
                 );
                 return null;
             }
@@ -647,7 +667,7 @@ namespace USSR.Core
                 bool noWatermark = buildSettingsBase["isNoWatermarkBuild"].AsBool;
                 if (noWatermark)
                 {
-                    AnsiConsole.MarkupLine("[yellow]( WARN )[/] Watermark have been removed!");
+                    AnsiConsole.MarkupLine("[yellow]( WARN ) Watermark have been removed![/]");
                     return null;
                 }
 
@@ -716,7 +736,7 @@ namespace USSR.Core
                             bundleFileInstance?.file.Write(writer, bundleReplacer);
 
                         AnsiConsole.MarkupLineInterpolated(
-                            $"( INFO ) Compressing {modifiedFile}..."
+                            $"( INFO ) Compressing [green]{modifiedFile}[/]..."
                         );
                         using (
                             FileStream uncompressedBundleStream = File.OpenRead(
@@ -736,8 +756,6 @@ namespace USSR.Core
                         }
                         break;
                     }
-                    case AssetTypes.WebData:
-                        break;
                 }
             }
             catch (Exception ex)
