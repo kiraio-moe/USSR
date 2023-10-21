@@ -10,7 +10,6 @@
   - [iOS](#ios)
 - [Supported Platforms](#supported-platforms)
 - [Supported Unity Versions](#supported-unity-versions)
-- [Todo List](#todo-list)
 - [Contribute](#contribute)
 - [Credits](#credits)
 - [License](#license)
@@ -25,14 +24,9 @@ On the latest updated policy for Unity Runtime Fee on 22 September 2023 (<https:
 
 If you developing a new game, you may want to switch to those Unity version.
 
-Does it impact the development of Unity Splash Screen Remover (USSR)? Not really.  
-I myself still use the old Unity version (Unity 2020), so the development of USSR will still be active until I decided to switch to the latest Unity version and that's not anytime soon.
-
-So, what's your thoughts?
-
 ## Overview
 
-The Unity Splash Screen Remover (USSR) is a Command-Line Interface (CLI) tool designed to remove the Unity splash screen logo + [watermark](https://forum.unity.com/threads/i-am-using-personal-but-there-is-trial-version-water-mark-after-build.591610/#post-3975343) from Unity-built games.
+The Unity Splash Screen Remover (USSR) is a Command-Line Interface (CLI) tool designed to remove the Unity splash screen logo & [watermark](https://forum.unity.com/threads/i-am-using-personal-but-there-is-trial-version-water-mark-after-build.591610/#post-3975343) from Unity-built games.
 
 The tool is an implementation of the guide available at <https://github.com/kiraio-moe/remove-unity-splash-screen>. By utilizing this tool, you can easily remove Unity splash screen logo from your games and keep your own logo displayed.
 
@@ -43,20 +37,8 @@ The tool is an implementation of the guide available at <https://github.com/kira
 
 ## Usages
 
-To use the tool, follow the steps below:
-
 - Download USSR from [Releases](https://github.com/kiraio-moe/USSR/releases) page.
-- There's many ways to use USSR. Choose which one you feel most comfortable with.
-
-  1. Drag and drop your game executable `(*.exe|*.x86|*.x86_64|*.dmg|index.html)` directly to `USSR.exe`, not in opened console window!
-  2. Drag and drop `globalgamemanagers` or `data.unity3d` file (_`WebGL.data` currently are not supported_) directly to `USSR.exe`.
-  3. Execute USSR on CLI:
-
-      ```bash
-      USSR.exe <path/to/(*.exe|*.x86|*.x86_64|*.dmg|index.html|globalgamemanagers|data.unity3d|WebGL.data)>
-      ```
-
----
+- Run `USSR.exe` and follow the instructions.
 
 ### Android
 
@@ -74,7 +56,8 @@ To use the tool, follow the steps below:
 
 ### iOS
 
-> This section may have some incorrect information. If you found one, feel free to create an Issue/Pull Request.
+> [!WARNING]
+> This section may have some incorrect information. Feel free to create Issue/Pull Request if there's mistake.
 
 - [Xcode](https://developer.apple.com/xcode/ "Xcode") installed.
 - There's no fancy settings to be checked, just **Build** (export) the project.
@@ -94,18 +77,10 @@ USSR support the following platforms:
 
 ## Supported Unity Versions
 
+> [!IMPORTANT]
+> Some minor Unity versions is not supported and can caused crash.
+
 - Unity 5 ~ Unity 2023
-
-## Todo List
-
-- ~~Add support for WebGL platform~~ ✔️
-  - ~~Decompress WebGL.data~~ ✔️
-  - ~~Compress back to WebGL.data~~ ✔️
-  - ~~Support Brotli compression~~ ✔️
-  - ~~Support GZip compression~~ ✔️
-- ~~Support compressed build~~ ✔️
-- ~~Add support for Android~~ ✔️
-- Refactor code 🚧
 
 ## Contribute
 
@@ -113,9 +88,8 @@ If you found any bugs or have suggestions, feel free to make an Issue/Pull Reque
 
 ## Credits
 
-Special thanks to [nesrak1](https://github.com/nesrak1) for the [AssetsTools.NET](https://github.com/nesrak1/AssetsTools.NET "AssetsTools.NET") library, which was instrumental in the development of this tool.
-
-- [arti4ikmin](https://github.com/arti4ikmin "arti4ikmin GitHub profile") for the guide on Android platform.
+- Special thanks to @nesrak1 for the @nesrak1/AssetsTools.NET library, which was instrumental in the development of this tool.
+- @arti4ikmin for the guide on Android platform.
 
 ## License
 
