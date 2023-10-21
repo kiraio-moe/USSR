@@ -2,9 +2,9 @@ using System.IO.Compression;
 
 namespace USSR.Utilities
 {
-    public class GZipUtils
+    internal class GZipUtils
     {
-        private static CompressionLevel GetCompressionLevel()
+        static CompressionLevel GetCompressionLevel()
         {
             // NOTE: CompressionLevel.SmallestSize == 3 is not supported in .NET Core 3.1 but is in .NET 6
             if (Enum.IsDefined(typeof(CompressionLevel), 3))
@@ -13,7 +13,7 @@ namespace USSR.Utilities
             return CompressionLevel.Optimal;
         }
 
-        public static byte[] CompressBytes(byte[] bytes)
+        internal static byte[] CompressBytes(byte[] bytes)
         {
             using MemoryStream? outputStream = new();
             using (GZipStream? compressionStream = new(outputStream, GetCompressionLevel()))
@@ -22,7 +22,7 @@ namespace USSR.Utilities
             return outputStream.ToArray();
         }
 
-        public static string CompressFile(string originalFileName, string compressedFileName)
+        internal static string CompressFile(string originalFileName, string compressedFileName)
         {
             using FileStream originalStream = File.Open(originalFileName, FileMode.Open);
             using FileStream compressedStream = File.Create(compressedFileName);
@@ -31,13 +31,13 @@ namespace USSR.Utilities
             return compressedFileName;
         }
 
-        public static void CompressStream(Stream originalStream, Stream compressedStream)
+        internal static void CompressStream(Stream originalStream, Stream compressedStream)
         {
             using GZipStream? compressor = new(compressedStream, GetCompressionLevel());
             originalStream.CopyTo(compressor);
         }
 
-        public static byte[] DecompressBytes(byte[] bytes)
+        internal static byte[] DecompressBytes(byte[] bytes)
         {
             using MemoryStream? inputStream = new(bytes);
             using MemoryStream? outputStream = new();
@@ -47,7 +47,7 @@ namespace USSR.Utilities
             return outputStream.ToArray();
         }
 
-        public static string DecompressFile(string compressedFileName, string outputFileName)
+        internal static string DecompressFile(string compressedFileName, string outputFileName)
         {
             using FileStream compressedFileStream = File.Open(compressedFileName, FileMode.Open);
             using FileStream outputFileStream = File.Create(outputFileName);
@@ -56,7 +56,7 @@ namespace USSR.Utilities
             return outputFileName;
         }
 
-        public static void DecompressStream(Stream compressedStream, Stream outputStream)
+        internal static void DecompressStream(Stream compressedStream, Stream outputStream)
         {
             using GZipStream? decompressor = new(compressedStream, CompressionMode.Decompress);
             decompressor.CopyTo(outputStream);

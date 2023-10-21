@@ -51,7 +51,9 @@ namespace USSR.Utilities
             {
                 if (!File.Exists(sourceFile))
                 {
-                    AnsiConsole.MarkupLineInterpolated($"[red]( ERROR )[/] Source file to duplicate doesn\'t exist: [red]{sourceFile}[/]");
+                    AnsiConsole.MarkupLineInterpolated(
+                        $"[red]( ERROR )[/] Source file to duplicate doesn\'t exist: [red]{sourceFile}[/]"
+                    );
                     return string.Empty;
                 }
 
@@ -77,7 +79,9 @@ namespace USSR.Utilities
 
             if (!File.Exists(backupFile))
             {
-                AnsiConsole.MarkupLineInterpolated($"( INFO ) Backup [green]{Path.GetFileName(sourceFile)}[/] as [green]{backupFile}[/]...");
+                AnsiConsole.MarkupLineInterpolated(
+                    $"( INFO ) Backup [green]{Path.GetFileName(sourceFile)}[/] as [green]{backupFile}[/]..."
+                );
                 CloneFile(sourceFile, backupFile);
             }
 
@@ -106,21 +110,6 @@ namespace USSR.Utilities
         }
 
         /// <summary>
-        /// Check if File exists. Return default message if not.
-        /// </summary>
-        /// <param name="file"></param>
-        /// <returns></returns>
-        internal static bool CheckFile(string? file)
-        {
-            if (!File.Exists(file))
-            {
-                AnsiConsole.MarkupLineInterpolated($"[red]{file} didn\'t exist![/] The file is moved or deleted.");
-                return false;
-            }
-            return true;
-        }
-
-        /// <summary>
         /// Find the required asset to remove the splash screen or watermark.
         /// </summary>
         /// <param name="directoryPath"></param>
@@ -132,7 +121,8 @@ namespace USSR.Utilities
 
             foreach (string asset in assets)
             {
-                if (File.Exists(path = Path.Combine(directoryPath, asset))) break;
+                if (File.Exists(path = Path.Combine(directoryPath, asset)))
+                    break;
             }
 
             return path;

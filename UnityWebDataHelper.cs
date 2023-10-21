@@ -35,7 +35,9 @@ namespace USSR.Utilities
 
             if (!File.Exists(bundleFile))
             {
-                AnsiConsole.MarkupLineInterpolated($"[red]( ERROR )[/] File not found: [red]{bundleFile}[/]");
+                AnsiConsole.MarkupLineInterpolated(
+                    $"[red]( ERROR )[/] File not found: [red]{bundleFile}[/]"
+                );
                 return string.Empty;
             }
 
@@ -86,11 +88,15 @@ namespace USSR.Utilities
         /// <param name="outputFile"></param>
         internal static string PackFilesToWebData(string sourceFolder, string outputFile)
         {
-            AnsiConsole.MarkupLineInterpolated($"( INFO ) Packing [green]{sourceFolder}[/] as [green]{outputFile}[/]...");
+            AnsiConsole.MarkupLineInterpolated(
+                $"( INFO ) Packing [green]{sourceFolder}[/] as [green]{outputFile}[/]..."
+            );
 
             if (!Directory.Exists(sourceFolder))
             {
-                AnsiConsole.MarkupLineInterpolated($"[red]( ERROR )[/] Directory not found: [red]{sourceFolder}[/]");
+                AnsiConsole.MarkupLineInterpolated(
+                    $"[red]( ERROR )[/] Directory not found: [red]{sourceFolder}[/]"
+                );
                 return string.Empty;
             }
 
@@ -211,7 +217,9 @@ namespace USSR.Utilities
             }
             catch (Exception ex)
             {
-                AnsiConsole.MarkupLineInterpolated($"[red]( ERROR )[/] Failed to pack! {ex.Message}");
+                AnsiConsole.MarkupLineInterpolated(
+                    $"[red]( ERROR )[/] Failed to pack! {ex.Message}"
+                );
                 return string.Empty;
             }
         }

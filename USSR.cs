@@ -126,6 +126,14 @@ namespace USSR.Core
 
         static AssetTypes assetType;
 
+        enum WebGLCompressionTypes
+        {
+            Brotli,
+            GZip
+        }
+
+        static WebGLCompressionTypes webGLCompressionType;
+
         static void Main(string[] args)
         {
             AnsiConsole.Background = Color.Grey11;
@@ -204,16 +212,22 @@ namespace USSR.Core
             {
                 AnsiConsole.MarkupLine("( INFO ) [green]UnityWebData Brotli[/] file selected.");
                 isWebGL = true;
+                webGLCompressionType = WebGLCompressionTypes.Brotli;
 
-                AnsiConsole.MarkupLineInterpolated($"( INFO ) Decompress [green]{selectedFile}[/]...");
+                AnsiConsole.MarkupLineInterpolated(
+                    $"( INFO ) Decompressing [green]{selectedFile}[/]..."
+                );
                 BrotliUtils.DecompressFile(selectedFile, webDataFile);
             }
             else if (Utility.ValidateFile(selectedFile, gzipMagic))
             {
                 AnsiConsole.MarkupLine("( INFO ) [green]UnityWebData GZip[/] file selected.");
                 isWebGL = true;
+                webGLCompressionType = WebGLCompressionTypes.GZip;
 
-                AnsiConsole.MarkupLineInterpolated($"( INFO ) Decompress [green]{selectedFile}[/]...");
+                AnsiConsole.MarkupLineInterpolated(
+                    $"( INFO ) Decompressing [green]{selectedFile}[/]..."
+                );
                 GZipUtils.DecompressFile(selectedFile, webDataFile);
             }
             else
@@ -233,7 +247,6 @@ namespace USSR.Core
 
             if (isWebGL)
             {
-                // unpackedWebDataDirectory = UnityWebDataHelper.UnpackWebDataToFile(webDataFile);
                 // Unpack WebData asset + add to temporary files
                 unpackedWebDataDirectory = UnityWebDataHelper.UnpackWebDataToFile(webDataFile);
 
@@ -288,7 +301,6 @@ namespace USSR.Core
 
             if (assetFileInstance != null)
             {
-
                 switch (choiceIndex)
                 {
                     case 0:
@@ -322,40 +334,48 @@ namespace USSR.Core
             {
                 // Only pack if the contents is modified
                 if (assetsReplacer != null)
-                    UnityWebDataHelper.PackFilesToWebData(unpackedWebDataDirectory, selectedFile);
+                {
+                    if (
+                        webGLCompressionType == WebGLCompressionTypes.Brotli
+                        || webGLCompressionType == WebGLCompressionTypes.GZip
+                    )
+                        UnityWebDataHelper.PackFilesToWebData(
+                            unpackedWebDataDirectory,
+                            webDataFile
+                        );
+
+                    switch (webGLCompressionType)
+                    {
+                        case WebGLCompressionTypes.Brotli:
+                            AnsiConsole.MarkupLineInterpolated(
+                                $"( INFO ) Compressing [green]{webDataFile}[/] using Brotli compression. Please be patient, it might take some time..."
+                            );
+                            BrotliUtils.CompressFile(webDataFile, selectedFile);
+                            // BrotliUtils.WriteUnityIdentifier(selectedFile, unityBrotliMagic);
+                            break;
+                        case WebGLCompressionTypes.GZip:
+                            AnsiConsole.MarkupLineInterpolated(
+                                $"( INFO ) Compressing [green]{webDataFile}[/] using GZip compression. Please be patient, it might take some time..."
+                            );
+                            GZipUtils.CompressFile(webDataFile, selectedFile);
+                            break;
+                        default:
+                            UnityWebDataHelper.PackFilesToWebData(
+                                unpackedWebDataDirectory,
+                                selectedFile
+                            );
+                            break;
+                    }
+
+                    if (
+                        webGLCompressionType == WebGLCompressionTypes.Brotli
+                        || webGLCompressionType == WebGLCompressionTypes.GZip
+                    )
+                        File.Delete(webDataFile);
+                }
 
                 Directory.Delete(unpackedWebDataDirectory, true);
             }
-
-            // if (isWebGL)
-            // {
-
-            //     // string? webGLdataPath = Path.Combine(execDirectory, "Build", "WebGL.data");
-            //     UnityWebDataHelper.PackFilesToWebData(unpackedWebGLDirectory, rawWebGLFile);
-
-            //     // Delete WebGL folder
-            //     Directory.Delete(unpackedWebGLDirectory, true);
-
-            //     // Compress WebGL.data if using compression
-            //     switch (webGLCompressionType)
-            //     {
-            //         case ".data.br":
-            //             AnsiConsole.MarkupLine(
-            //                 "Compressing [green]WebGL.data[/] using Brotli compression. Please be patient, it might take some time..."
-            //             );
-            //             BrotliUtils.CompressFile(rawWebGLFile, $"{rawWebGLFile}.br");
-            //             break;
-            //         case ".data.gz":
-            //             AnsiConsole.MarkupLine(
-            //                 "Compressing [green]WebGL.data[/] using GZip compression. Please be patient, it might take some time..."
-            //             );
-            //             GZipUtils.CompressFile(rawWebGLFile, $"{rawWebGLFile}.gz");
-            //             break;
-            //     }
-
-            //     if (webGLCompressionType != ".data")
-            //         File.Delete(rawWebGLFile);
-            // }
 
             Console.WriteLine();
             goto ChooseAction;
