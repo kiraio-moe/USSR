@@ -45,8 +45,4 @@ do
         zip -r "../../../${ZIP_OUTPUT}" *
         cd "../../../../../" # build.sh directory
     done
-
-    # for os_arch in "${TARGET_OS_ARCHITECTURES[@]}"
-    # do
-    # done
 done
