@@ -208,7 +208,7 @@ namespace USSR.Core
                 isWebGL = true;
                 webDataFile = selectedFile;
             }
-            else if (Utility.ValidateFile(selectedFile, unityBrotliMagic))
+            else if (Utility.ValidateFile(selectedFile, unityBrotliMagic) || Path.GetExtension(selectedFile) == ".br")
             {
                 AnsiConsole.MarkupLine("( INFO ) [green]UnityWebData Brotli[/] file selected.");
                 isWebGL = true;
