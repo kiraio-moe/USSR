@@ -399,10 +399,9 @@ namespace USSR.Core
                 "For more information, visit USSR GitHub repo: [link]https://github.com/kiraio-moe/USSR[/]"
             );
             Console.WriteLine();
-            AnsiConsole.MarkupLine("[bold green]How to Use:[/]");
-            AnsiConsole.MarkupLine(
-                "Select the Action and choose one of this files: [green]globalgamemanagers[/] | [green]data.unity3d[/] | [green]WebGL.data[/] | [green]WebGL.data.br[/] | [green]WebGL.data.gz[/]"
-            );
+            AnsiConsole.MarkupLine("[bold green]How to Use[/]");
+            AnsiConsole.MarkupLine("Select the Action, find and choose one of this files in you game data:");
+            AnsiConsole.MarkupLine("[green]globalgamemanagers[/] | [green]data.unity3d[/] | [green]<game_name>.data[/] | [green]<game_name>.data.br[/] | [green]<game_name>.data.gz[/]");
         }
 
         static void LoadClassPackage(AssetsManager assetsManager, string tpkFile)
