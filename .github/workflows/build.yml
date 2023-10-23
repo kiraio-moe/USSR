@@ -1,12 +1,10 @@
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-net
-
 name: Build USSR
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "dev" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "dev" ]
     paths-ignore:
       - "**/*.md"
       - "**/*.gitignore"
@@ -19,7 +17,7 @@ jobs:
       matrix:
         dotnet-version: [ '6.0.x', '7.0.x' ]
         dotnet-framework: [ 'net6.0', 'net7.0' ]
-        dotnet-runtime: [ 'win-x64', 'win-x86', 'linux-x64', 'linux-arm', 'linux-arm64', 'osx-x64' ]
+        dotnet-runtime: [ 'win-x64', 'win-arm64', 'linux-x64', 'linux-arm64', 'osx-x64', 'osx-arm64' ]
 
     steps:
     - uses: actions/checkout@v3
@@ -27,7 +25,6 @@ jobs:
       uses: actions/setup-dotnet@v3
       with:
         dotnet-version: ${{ matrix.dotnet-version }}
-        dotnet-quality: ga
     - name: Cache dependencies
       uses: actions/cache@v3
       with:
@@ -37,20 +34,19 @@ jobs:
           ${{ runner.os }}-nuget
     - name: Install dependencies
       run: dotnet restore
-    - name: Build
-      run: dotnet build -c Release --no-restore
-    - name: Test
-      run: dotnet test --logger trx --results-directory ${{ github.workspace }}/TestResults-${{ matrix.dotnet-framework }}-${{ matrix.dotnet-runtime }} --no-restore --verbosity normal
-    - name: Report test
-      uses: actions/upload-artifact@v3
-      if: ${{ always() }}
-      with:
-        name: test-results-${{ matrix.dotnet-framework }}
-        path: ${{ github.workspace }}/TestResults-${{ matrix.dotnet-framework }}-${{ matrix.dotnet-runtime }}
+    - name: Build and Test
+      run: |
+        dotnet build -c Release --no-restore
+        dotnet test --logger trx --results-directory ${{ github.workspace }}/TestResults-${{ matrix.dotnet-framework }}-${{ matrix.dotnet-runtime }} --no-restore --verbosity normal
+      working-directory: ${{ github.workspace }}
     - name: Publish
       run: dotnet publish -c Release --framework ${{ matrix.dotnet-framework }} --runtime ${{ matrix.dotnet-runtime }} --no-self-contained
-    - name: Upload artifact for deployment job
+      working-directory: ${{ github.workspace }}
+    - name: Copy classdata.tpk to every runtime
+      run: cp classdata.tpk ${{ github.workspace }}/bin/Release/${{ matrix.dotnet-framework }}/${{ matrix.dotnet-runtime }}/publish/
+      working-directory: ${{ github.workspace }}
+    - name: Upload Artifact
       uses: actions/upload-artifact@v3
       with:
-        name: USSR-${{ matrix.dotnet-framework }}-latest
+        name: USSR-${{ matrix.dotnet-framework }}-${{ matrix.dotnet-runtime }}-latest
         path: ${{ github.workspace }}/bin/Release/${{ matrix.dotnet-framework }}/${{ matrix.dotnet-runtime }}/publish/
