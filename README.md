@@ -1,4 +1,15 @@
-# Unity Splash Screen Remover
+<div align="center">
+  <h1 align="center">Unity Splash Screen Remover</h1>
+
+  <img alt="USSR workflow status (with event)" src="https://img.shields.io/github/actions/workflow/status/kiraio-moe/USSR/build.yml">
+  <img alt="USSR release" src="https://img.shields.io/github/v/release/kiraio-moe/USSR">
+  <img alt="USSR total downloads" src="https://img.shields.io/github/downloads/kiraio-moe/USSR/total">
+  <img alt="USSR Repo stars" src="https://img.shields.io/github/stars/kiraio-moe/USSR">
+  <img alt="USSR forks" src="https://img.shields.io/github/forks/kiraio-moe/USSR">
+  <img alt="USSR issues" src="https://img.shields.io/github/issues/kiraio-moe/USSR">
+  <img alt="USSR pull requests" src="https://img.shields.io/github/issues-pr/kiraio-moe/USSR">
+  <img alt="Project license" src="https://img.shields.io/github/license/kiraio-moe/USSR">
+</div>
 
 ## Table of Contents
 
@@ -37,6 +48,9 @@ The tool is an implementation of the guide available at <https://github.com/kira
 
 ## Usages
 
+> [!NOTE]
+> You can find the nightly build of USSR with the latest bug fixes in the [latest runned workflow](https://github.com/kiraio-moe/USSR/actions/workflows/build.yml) artifacts.
+
 - Download USSR from [Releases](https://github.com/kiraio-moe/USSR/releases) page.
 - Run `USSR.exe` and follow the instructions.
 
@@ -70,10 +84,10 @@ The tool is an implementation of the guide available at <https://github.com/kira
 
 USSR support the following platforms:
 
-- PC, Mac, Linux Standalone (Support Default, LZ4 & LZ4HC compression)
-- Android (Support Default, LZ4 & LZ4HC compression)
-- iOS (Support Default, LZ4 & LZ4HC compression)
-- WebGL (Support Default, Brotli & GZip compression)
+- PC, Mac, Linux Standalone
+- Android
+- iOS
+- WebGL
 
 ## Supported Unity Versions
 
@@ -88,8 +102,8 @@ If you found any bugs or have suggestions, feel free to make an Issue/Pull Reque
 
 ## Credits
 
-- Special thanks to @nesrak1 for the @nesrak1/AssetsTools.NET library, which was instrumental in the development of this tool.
-- @arti4ikmin for the guide on Android platform.
+- Special thanks to [@nesrak1](https://github.com/nesrak1) for the [@nesrak1/AssetsTools.NET](https://github.com/nesrak1/AssetsTools.NET) library, which was instrumental in the development of this tool.
+- [@arti4ikmin](https://github.com/arti4ikmin) for the guide on Android platform.
 
 ## License
 
