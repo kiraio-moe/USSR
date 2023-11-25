@@ -9,7 +9,7 @@ namespace USSR.Core
 {
     public class USSR
     {
-        const string VERSION = "1.1.5";
+        const string VERSION = "1.1.6";
         const string ASSET_CLASS_DB = "classdata.tpk";
         static readonly byte[] ggmMagic =
         {
@@ -374,7 +374,7 @@ namespace USSR.Core
                         File.Delete(webDataFile);
                 }
 
-                Directory.Delete(unpackedWebDataDirectory, true);
+                //Directory.Delete(unpackedWebDataDirectory, true);
             }
 
             Console.WriteLine();
@@ -400,7 +400,7 @@ namespace USSR.Core
             );
             Console.WriteLine();
             AnsiConsole.MarkupLine("[bold green]How to Use[/]");
-            AnsiConsole.MarkupLine("Select the Action, find and choose one of this files in you game data:");
+            AnsiConsole.MarkupLine("Select the Action, find and choose one of these files in you game data:");
             AnsiConsole.MarkupLine("[green]globalgamemanagers[/] | [green]data.unity3d[/] | [green]<game_name>.data[/] | [green]<game_name>.data.br[/] | [green]<game_name>.data.gz[/]");
         }
 
@@ -563,31 +563,31 @@ namespace USSR.Core
                 return null;
             }
 
-            AnsiConsole.MarkupLine(
-                "( INFO ) Sometimes USSR [yellow]can\'t automatically detect Unity splash screen logo[/] and it\'s leading to accidentally [red]removing your own logo[/]. To tackle this, USSR [green]need information about \"Made With Unity\" logo duration[/]."
-            );
-            AnsiConsole.MarkupLine(
-                "( INFO ) Please [red]make a difference with the logo duration[/] when you build your game! [red]If your logo and Unity logo have same duration, USSR will remove both of them[/]. If no value provided, USSR will use it\'s own way to detect it and [red]may removing your own logo[/]."
-            );
-            AnsiConsole.Markup("[green](Optional)[/] Enter Unity splash screen logo duration: ");
+            // AnsiConsole.MarkupLine(
+            //     "( INFO ) Sometimes USSR [yellow]can\'t automatically detect Unity splash screen logo[/] and it\'s leading to accidentally [red]removing your own logo[/]. To tackle this, USSR [green]need information about \"Made With Unity\" logo duration[/]."
+            // );
+            // AnsiConsole.MarkupLine(
+            //     "( INFO ) Please [red]make a difference with the logo duration[/] when you build your game! [red]If your logo and Unity logo have same duration, USSR will remove both of them[/]. If no value provided, USSR will use it\'s own way to detect it and [red]may removing your own logo[/]."
+            // );
+            // AnsiConsole.Markup("[green](Optional)[/] Enter Unity splash screen logo duration: ");
 
-            int unityLogoDuration = 0;
-            try
-            {
-                int.TryParse(
-                    Console.ReadLine(),
-                    System.Globalization.NumberStyles.Integer,
-                    null,
-                    out unityLogoDuration
-                );
-            }
-            catch (Exception ex)
-            {
-                AnsiConsole.WriteException(ex);
-            }
+            // int unityLogoDuration = 0;
+            // try
+            // {
+            //     int.TryParse(
+            //         Console.ReadLine(),
+            //         System.Globalization.NumberStyles.Integer,
+            //         null,
+            //         out unityLogoDuration
+            //     );
+            // }
+            // catch (Exception ex)
+            // {
+            //     AnsiConsole.WriteException(ex);
+            // }
 
             AnsiConsole.MarkupLineInterpolated(
-                $"( INFO ) Set hasProVersion = [green]{!hasProVersion}[/] | m_ShowUnitySplashLogo = [green]{!showUnityLogo}[/]"
+                $"( INFO ) Set [green]hasProVersion = {!hasProVersion}[/] | [green]m_ShowUnitySplashLogo = {!showUnityLogo}[/]"
             );
 
             // Remove Unity splash screen by flipping these boolean fields
@@ -595,68 +595,25 @@ namespace USSR.Core
             playerSettingsBase["m_ShowUnitySplashLogo"].AsBool = !showUnityLogo; // false
 
             AssetTypeValueField splashScreenLogos = playerSettingsBase["m_SplashScreenLogos.Array"];
-            AssetTypeValueField? unityLogo = null;
-
-            // Iterate over "m_SplashScreenLogos" to find Unity splash screen logo
-            foreach (AssetTypeValueField splashLogo in splashScreenLogos)
-            {
-                // Get the Sprite asset
-                AssetTypeValueField? logoPointer = splashLogo?["logo"];
-                // Get the external asset
-                AssetExternal logoExtInfo = assetsManager.GetExtAsset(
-                    assetFileInstance,
-                    logoPointer
-                );
-
-                /*
-                * We have 2 ways to detect the Unity splash screen logo.
-                * 1. Check if the base field isn't null. This method guaranteed to be 100% work.
-                * 2. Use optional input value from user to determine the splash screen.
-                */
-
-                if (logoExtInfo.baseField != null)
-                {
-                    // Get the base field
-                    AssetTypeValueField? logoBase = logoExtInfo.baseField;
-                    string? logoName = logoBase["m_Name"].AsString;
-
-                    // If it's Unity splash screen logo
-                    unityLogo = logoName.Contains("UnitySplash-cube") ? splashLogo : null;
-                }
-                else
-                {
-                    /*
-                    * Sometimes AssetsTools won't load "UnitySplash-cube"
-                    * external asset while in Bundle file.
-                    *
-                    * Luckily, we can still find it by using the logo duration.
-                    */
-                    unityLogo =
-                        splashLogo?["duration"].AsInt == unityLogoDuration ? splashLogo : null;
-                }
-            }
-
-            if (unityLogo == null && unityLogoDuration <= 0)
-            {
-                AnsiConsole.MarkupLine(
-                    "[red]( ERROR )[/] Failed to remove Unity splash screen logo!"
-                );
-                AnsiConsole.MarkupLine(
-                    "[red]( ERROR )[/] Looks like USSR [red]can\'t detect the Unity splash screen[/] and at the same time [red]you didn\'t provide any value to the input[/] to help USSR find the splash screen. [yellow]Try again and fill in the input.[/]"
-                );
-                return null;
-            }
-
-            /*
-            * Remove "UnitySplash-cube" to completely remove
-            * Unity splash screen logo.
-            */
-            AnsiConsole.MarkupLineInterpolated($"( INFO ) Removing [red]UnitySplash-cube[/]...");
-            splashScreenLogos?.Children.Remove(unityLogo);
-
-            AnsiConsole.MarkupLine(
-                "( INFO ) [green]Successfully removed the Unity splash screen.[/]"
+            AnsiConsole.MarkupLineInterpolated($"( INFO ) There's [green]{splashScreenLogos.Count()}[/] splash screen detected. What order are Unity splash screen logo in your Player Settings? (Start from 0)");
+            int.TryParse(
+                Console.ReadLine(),
+                System.Globalization.NumberStyles.Integer,
+                null,
+                out int unitySplashIndex
             );
+
+            InputLogoIndex:
+            if (unitySplashIndex < 0 && unitySplashIndex > splashScreenLogos.Count())
+            {
+                AnsiConsole.MarkupLineInterpolated($"( ERROR ) There's no logo at index {unitySplashIndex}! Try again!");
+                goto InputLogoIndex;
+            }
+
+            AnsiConsole.MarkupLineInterpolated(
+                $"( INFO ) [green]Removing Unity splash screen at index {unitySplashIndex}.[/]"
+            );
+            splashScreenLogos?.Children.RemoveAt(unitySplashIndex);
 
             return new()
             {
@@ -684,16 +641,19 @@ namespace USSR.Core
                 );
 
                 bool noWatermark = buildSettingsBase["isNoWatermarkBuild"].AsBool;
-                if (noWatermark)
+                bool isTrial = buildSettingsBase["isTrial"].AsBool;
+
+                if (noWatermark && !isTrial)
                 {
                     AnsiConsole.MarkupLine("[yellow]( WARN ) Watermark have been removed![/]");
                     return null;
                 }
 
                 AnsiConsole.MarkupLineInterpolated(
-                    $"( INFO ) Set isNoWatermarkBuild = [green]{!noWatermark}[/]"
+                    $"( INFO ) Set [green]isNoWatermarkBuild = {!noWatermark}[/] | [green]isTrial = {!isTrial}[/]"
                 );
                 buildSettingsBase["isNoWatermarkBuild"].AsBool = !noWatermark;
+                buildSettingsBase["isTrial"].AsBool = !isTrial;
 
                 AnsiConsole.MarkupLine("( INFO ) [green]Watermark successfully removed.[/]");
                 return new()
