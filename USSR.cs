@@ -9,7 +9,7 @@ namespace USSR.Core
 {
     public class USSR
     {
-        const string VERSION = "1.1.5";
+        const string VERSION = "1.1.6";
         const string ASSET_CLASS_DB = "classdata.tpk";
         static readonly byte[] ggmMagic =
         {
