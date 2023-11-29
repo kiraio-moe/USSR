@@ -31,19 +31,15 @@
 
 On the latest updated policy for Unity Runtime Fee on 22 September 2023 (<https://unity.com/pricing-updates>), one of the key updates is Unity has decided to make the splash screen optional. Starting with Unity 2024 LTS (currently referred to as the 2023 LTS) or later.
 
-> ...and we will remove the requirement to use the Made with Unity splash screen (starting with the LTS version releasing in 2024, currently referred to as the 2023 LTS, or later).
-
-If you developing a new game, you may want to switch to those Unity version.
-
 ## Overview
 
 The Unity Splash Screen Remover (USSR) is a Command-Line Interface (CLI) tool designed to remove the Unity splash screen logo & [watermark](https://forum.unity.com/threads/i-am-using-personal-but-there-is-trial-version-water-mark-after-build.591610/#post-3975343) from Unity-built games.
 
-The tool is an implementation of the guide available at <https://github.com/kiraio-moe/remove-unity-splash-screen>. By utilizing this tool, you can easily remove Unity splash screen logo from your games and keep your own logo displayed.
+The tool is an implementation of the guide available at <https://github.com/kiraio-moe/remove-unity-splash-screen>. By utilizing this tool, you can easily remove Unity splash screen from your games and keep your own logo displayed.
 
 ## Requirements
 
-- [.NET 6.0 SDK](https://dotnet.microsoft.com/download/dotnet/6.0 ".NET 6.0 SDK") or [.NET 7.0 SDK](https://dotnet.microsoft.com/download/dotnet/7.0 ".NET 7.0 SDK")
+- [.NET 6.0 SDK](https://dotnet.microsoft.com/download/dotnet/6.0 ".NET 6.0 SDK") or [.NET 7.0 SDK](https://dotnet.microsoft.com/download/dotnet/7.0 ".NET 7.0 SDK") or [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0 ".NET 8.0 SDK")
 - Splash screen `Draw Mode` have been set to `All Sequential` in `Player Settings`.
 
 ## Usages
@@ -52,7 +48,7 @@ The tool is an implementation of the guide available at <https://github.com/kira
 > You can find the nightly build of USSR with the latest bug fixes in the [latest runned workflow](https://github.com/kiraio-moe/USSR/actions/workflows/build.yml) artifacts.
 
 - Download USSR from [Releases](https://github.com/kiraio-moe/USSR/releases) page.
-- Run `USSR.exe` and follow the instructions.
+- Run `USSR.exe` and follow the instructions. If you're on Android or iOS platform, please read the guide below.
 
 ### Android
 
@@ -71,7 +67,7 @@ The tool is an implementation of the guide available at <https://github.com/kira
 ### iOS
 
 > [!WARNING]
-> This section may have some incorrect information. Feel free to create Issue/Pull Request if there's mistake.
+> This section may have some incorrect information (I'm not an expert on this). Feel free to create Issue/Pull Request if there's mistake.
 
 - [Xcode](https://developer.apple.com/xcode/ "Xcode") installed.
 - There's no fancy settings to be checked, just **Build** (export) the project.
@@ -92,18 +88,19 @@ USSR support the following platforms:
 ## Supported Unity Versions
 
 > [!IMPORTANT]
-> Some minor Unity versions is not supported and can caused crash.
+> Some minor Unity versions are not supported and can caused crash.
 
 - Unity 5 ~ Unity 2023
 
 ## Contribute
 
-If you found any bugs or have suggestions, feel free to make an Issue/Pull Request.
+If you found any bugs or have suggestions, feel free to create an Issue/Pull Request.
 
 ## Credits
 
 - Special thanks to [@nesrak1](https://github.com/nesrak1) for the [@nesrak1/AssetsTools.NET](https://github.com/nesrak1/AssetsTools.NET) library, which was instrumental in the development of this tool.
 - [@arti4ikmin](https://github.com/arti4ikmin) for the guide on Android platform.
+- [UnityWebTools.NET](https://github.com/kiraio-moe/UnityWebTools.NET), my own tool to unpack & repack UnityWebData.
 
 ## License
 

@@ -92,20 +92,19 @@ namespace USSR.Utilities
         /// Delete <paramref name="paths"/>.
         /// </summary>
         /// <param name="paths"></param>
-        internal static void CleanUp(List<string>? paths)
+        internal static void CleanUp(List<string> paths)
         {
-            if (paths == null && paths?.Count < 1)
-                return;
-
-            AnsiConsole.MarkupLine("( INFO ) Cleaning up temporary files...");
-
-            foreach (string path in paths)
+            if (paths != null && paths?.Count > 0)
             {
-                if (File.Exists(path))
-                    File.Delete(path);
+                AnsiConsole.MarkupLine("( INFO ) Cleaning up temporary files...");
+                foreach (string path in paths)
+                {
+                    if (File.Exists(path))
+                        File.Delete(path);
 
-                if (Directory.Exists(path))
-                    Directory.Delete(path, true);
+                    if (Directory.Exists(path))
+                        Directory.Delete(path, true);
+                }
             }
         }
 

@@ -1,6 +1,7 @@
 ﻿using System.Reflection;
 using AssetsTools.NET;
 using AssetsTools.NET.Extra;
+using Kiraio.UnityWebTools;
 using NativeFileDialogSharp;
 using Spectre.Console;
 using USSR.Utilities;
@@ -209,6 +210,7 @@ namespace USSR.Core
                 AnsiConsole.MarkupLine("( INFO ) [green]UnityWebData[/] file selected.");
                 isWebGL = true;
                 webDataFile = selectedFile;
+                webGLCompressionType = WebGLCompressionType.None;
             }
             else if (
                 Utility.ValidateFile(selectedFile, unityBrotliMagic)
@@ -253,7 +255,7 @@ namespace USSR.Core
             if (isWebGL)
             {
                 // Unpack WebData asset + add to temporary files
-                unpackedWebDataDirectory = UnityWebDataHelper.UnpackWebDataToFile(webDataFile);
+                unpackedWebDataDirectory = UnityWebTool.Unpack(webDataFile);
 
                 // Find and select "data.unity3d" or "globalgamemanagers"
                 inspectedFile = Utility.FindRequiredAsset(unpackedWebDataDirectory);
@@ -348,38 +350,36 @@ namespace USSR.Core
             {
                 if (isWebGL && assetsReplacer != null)
                 {
-                    if (webGLCompressionType != WebGLCompressionType.None)
-                        UnityWebDataHelper.PackFilesToWebData(
-                            unpackedWebDataDirectory,
-                            webDataFile
-                        );
-
                     switch (webGLCompressionType)
                     {
                         case WebGLCompressionType.Brotli:
+                            UnityWebTool.Pack(unpackedWebDataDirectory, webDataFile);
+
                             AnsiConsole.MarkupLineInterpolated(
                                 $"( INFO ) Compressing [green]{webDataFile}[/] using Brotli compression. Please be patient, it might take some time..."
                             );
                             BrotliUtils.CompressFile(webDataFile, selectedFile);
                             // BrotliUtils.WriteUnityIdentifier(selectedFile, unityBrotliMagic);
+
+                            if (File.Exists(webDataFile))
+                                File.Delete(webDataFile);
                             break;
                         case WebGLCompressionType.GZip:
+                            UnityWebTool.Pack(unpackedWebDataDirectory, webDataFile);
+
                             AnsiConsole.MarkupLineInterpolated(
                                 $"( INFO ) Compressing [green]{webDataFile}[/] using GZip compression. Please be patient, it might take some time..."
                             );
                             GZipUtils.CompressFile(webDataFile, selectedFile);
+
+                            if (File.Exists(webDataFile))
+                                File.Delete(webDataFile);
                             break;
                         case WebGLCompressionType.None:
                         default:
-                            UnityWebDataHelper.PackFilesToWebData(
-                                unpackedWebDataDirectory,
-                                selectedFile
-                            );
+                            UnityWebTool.Pack(unpackedWebDataDirectory, selectedFile);
                             break;
                     }
-
-                    if (webGLCompressionType != WebGLCompressionType.None)
-                        File.Delete(webDataFile);
                 }
             }
             catch (Exception ex)
@@ -677,13 +677,11 @@ namespace USSR.Core
                 buildSettingsBase["hasPROVersion"].AsBool = !hasProVersion; // true
                 playerSettingsBase["m_ShowUnitySplashLogo"].AsBool = !showUnityLogo; // false
 
-                if (totalSplashScreen > 0)
-                {
-                    AnsiConsole.MarkupLineInterpolated(
-                        $"( INFO ) [green]Removed splash screen at index {splashScreenIndex}.[/]"
-                    );
-                    splashScreenLogos?.Children.RemoveAt(splashScreenIndex);
-                }
+                AnsiConsole.MarkupLineInterpolated(
+                    $"( INFO ) [green]Removed splash screen at index {splashScreenIndex}.[/]"
+                );
+
+                splashScreenLogos?.Children.RemoveAt(splashScreenIndex);
 
                 return new()
                 {
