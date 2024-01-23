@@ -15,8 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        dotnet-version: [ '6.0.x', '7.0.x' ]
-        dotnet-framework: [ 'net6.0', 'net7.0' ]
+        dotnet-version: [ '6.0.x', '7.0.x', '8.0.x' ]
+        dotnet-framework: [ 'net6.0', 'net7.0', 'net8.0' ]
         dotnet-runtime: [ 'win-x64', 'win-arm64', 'linux-x64', 'linux-arm64', 'osx-x64', 'osx-arm64' ]
 
     steps:
