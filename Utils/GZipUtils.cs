@@ -49,11 +49,21 @@ namespace USSR.Utilities
 
         internal static string DecompressFile(string compressedFileName, string outputFileName)
         {
-            using FileStream compressedFileStream = File.Open(compressedFileName, FileMode.Open);
-            using FileStream outputFileStream = File.Create(outputFileName);
-            DecompressStream(compressedFileStream, outputFileStream);
+            try
+            {
+                using FileStream compressedFileStream = File.Open(
+                    compressedFileName,
+                    FileMode.Open
+                );
+                using FileStream outputFileStream = File.Create(outputFileName);
+                DecompressStream(compressedFileStream, outputFileStream);
 
-            return outputFileName;
+                return outputFileName;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
+            }
         }
 
         internal static void DecompressStream(Stream compressedStream, Stream outputStream)
