@@ -69,7 +69,7 @@ namespace USSR.Utilities
         }
 
         /// <summary>
-        /// Backup a fileas ".bak". If it's already exist, skip.
+        /// Backup a file as ".bak". If it's already exist, skip.
         /// </summary>
         /// <param name="sourceFile"></param>
         /// <returns></returns>

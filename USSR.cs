@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+﻿using System;
 using AssetsTools.NET;
 using AssetsTools.NET.Extra;
 using Kiraio.UnityWebTools;
@@ -12,121 +12,12 @@ namespace USSR.Core
     {
         const string VERSION = "1.1.6";
         const string ASSET_CLASS_DB = "classdata.tpk";
-        static readonly byte[] ggmMagic =
-        {
-            0x00,
-            0x00,
-            0x00,
-            0x00,
-            0x00,
-            0x00,
-            0x00,
-            0x00,
-            0x00,
-            0x00,
-            0x00,
-            0x16,
-            0x00,
-            0x00,
-            0x00,
-            0x00
-        };
-
-        static readonly byte[] unity3dMagic =
-        {
-            0x55,
-            0x6E,
-            0x69,
-            0x74,
-            0x79,
-            0x46,
-            0x53,
-            0x00,
-            0x00,
-            0x00,
-            0x00,
-            0x08,
-            0x35,
-            0x2E,
-            0x78,
-            0x2E
-        };
-
-        static readonly byte[] unityWebDataMagic =
-        {
-            0x55,
-            0x6E,
-            0x69,
-            0x74,
-            0x79,
-            0x57,
-            0x65,
-            0x62,
-            0x44,
-            0x61,
-            0x74,
-            0x61,
-            0x31,
-            0x2E,
-            0x30,
-            0x00
-        };
-
-        static readonly byte[] gzipMagic = { 0x1f, 0x8b };
-
-        // Ref: https://github.com/google/brotli/issues/867#issue-739852869
-        // I have already test this magic bytes into an asset file, but
-        // it's turning out that it's not work.
-        static readonly byte[] unityBrotliMagic =
-        {
-            0x6B,
-            0x8D,
-            0x00,
-            0x55,
-            0x6E,
-            0x69,
-            0x74,
-            0x79,
-            0x57,
-            0x65,
-            0x62,
-            0x20,
-            0x43,
-            0x6F,
-            0x6D,
-            0x70,
-            0x72,
-            0x65,
-            0x73,
-            0x73,
-            0x65,
-            0x64,
-            0x20,
-            0x43,
-            0x6F,
-            0x6E,
-            0x74,
-            0x65,
-            0x6E,
-            0x74,
-            0x20,
-            0x28,
-            0x62,
-            0x72,
-            0x6F,
-            0x74,
-            0x6C,
-            0x69,
-            0x29
-        };
 
         enum AssetTypes
         {
             Asset,
             Bundle
         }
-
-        static AssetTypes assetType;
 
         enum WebGLCompressionType
         {
@@ -135,6 +26,7 @@ namespace USSR.Core
             GZip
         }
 
+        static AssetTypes assetType;
         static WebGLCompressionType webGLCompressionType;
 
         static void Main(string[] args)
@@ -143,20 +35,19 @@ namespace USSR.Core
             PrintHelp();
             Console.WriteLine();
 
-            string? ussrExec = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            string? ussrExec = Path.GetDirectoryName(AppContext.BaseDirectory);
 
             ChooseAction:
             string[] actionList = { "Remove Unity Splash Screen", "Remove Watermark", "Exit" };
             string actionPrompt = AnsiConsole.Prompt(
                 new SelectionPrompt<string>()
-                    .Title("What would you like to do?")
+                    .Title("What would you like to do? (Press ENTER go, UP/DOWN to select)")
                     .AddChoices(actionList)
             );
             int choiceIndex = Array.FindIndex(actionList, item => item == actionPrompt);
 
             string? selectedFile = string.Empty,
-                originalFileName = string.Empty;
-            string? webDataFile = string.Empty,
+                webDataFile = string.Empty,
                 unpackedWebDataDirectory = string.Empty;
             bool isWebGL = false;
 
@@ -164,24 +55,33 @@ namespace USSR.Core
             {
                 case 0:
                 case 1:
-                    // Unfortunately, only one filter are supported.
-                    // Instead of working around with this, we just need to manually validate by reading the file header later.
+                    AnsiConsole.MarkupLine("Opening File Picker...");
+                    // Unfortunately, this File Picker library currently only support one filter :(
+                    // So we pass all file types and manually checking them if it's a valid file that we want.
                     DialogResult filePicker = Dialog.FileOpen(
                         null,
                         Path.GetDirectoryName(Utility.GetLastOpenedFile())
                     );
 
                     if (filePicker.IsCancelled)
+                    {
+                        AnsiConsole.MarkupLine("Cancelled. Oh, it\'s okay ^_^");
+                        Console.WriteLine();
                         goto ChooseAction;
+                    }
                     else if (filePicker.IsError)
                     {
                         AnsiConsole.MarkupLine(
-                            "[red]( ERROR )[/]Unable to open File Picker dialog!"
+                            "[red]( RAWR )[/] Unable to open File Picker! Try using a different Terminal?"
                         );
+                        Console.WriteLine();
                         goto ChooseAction;
                     }
 
-                    selectedFile = originalFileName = filePicker.Path;
+                    selectedFile = filePicker.Path;
+                    AnsiConsole.MarkupLineInterpolated(
+                        $"( INFO ) Selected file: [green]{selectedFile}[/]"
+                    );
                     Utility.SaveLastOpenedFile(selectedFile);
                     break;
                 case 2:
@@ -192,54 +92,75 @@ namespace USSR.Core
 
             webDataFile = Path.Combine(
                 Path.GetDirectoryName(selectedFile) ?? string.Empty,
-                Path.GetFileNameWithoutExtension(selectedFile)
+                Path.GetFileNameWithoutExtension(selectedFile) // Without .br / .gz extension
             );
+            string selectedFileName = Path.GetFileName(selectedFile);
 
-            if (Utility.ValidateFile(selectedFile, ggmMagic))
-            {
-                AnsiConsole.MarkupLine("( INFO ) [green]globalgamemanagers[/] file selected.");
+            if (selectedFileName.Contains("globalgamemanagers"))
                 assetType = AssetTypes.Asset;
-            }
-            else if (Utility.ValidateFile(selectedFile, unity3dMagic))
-            {
-                AnsiConsole.MarkupLine("( INFO ) [green]unity3d[/] file selected.");
+            else if (selectedFileName.EndsWith(".unity3d"))
                 assetType = AssetTypes.Bundle;
-            }
-            else if (Utility.ValidateFile(selectedFile, unityWebDataMagic))
+            else if (selectedFileName.EndsWith(".data"))
             {
-                AnsiConsole.MarkupLine("( INFO ) [green]UnityWebData[/] file selected.");
                 isWebGL = true;
                 webDataFile = selectedFile;
                 webGLCompressionType = WebGLCompressionType.None;
             }
-            else if (
-                Utility.ValidateFile(selectedFile, unityBrotliMagic)
-                || Path.GetExtension(selectedFile) == ".br"
-            )
+            else if (selectedFileName.EndsWith("data.unityweb"))
             {
-                AnsiConsole.MarkupLine("( INFO ) [green]UnityWebData Brotli[/] file selected.");
+                string[] compressionList = { "Brotli", "GZip" };
+                string compressionListPrompt = AnsiConsole.Prompt(
+                    new SelectionPrompt<string>()
+                        .Title("What compression type did you use?")
+                        .AddChoices(compressionList)
+                );
+                int compressionChoiceIndex = Array.FindIndex(
+                    compressionList,
+                    item => item == compressionListPrompt
+                );
+                isWebGL = true;
+
+                switch (compressionChoiceIndex)
+                {
+                    case 0:
+                        webGLCompressionType = WebGLCompressionType.Brotli;
+                        if (
+                            DecompressCompressedWebData(
+                                webGLCompressionType,
+                                selectedFile,
+                                webDataFile
+                            ) == 1
+                        )
+                            goto ChooseAction;
+                        break;
+                    case 1:
+                        webGLCompressionType = WebGLCompressionType.GZip;
+                        if (
+                            DecompressCompressedWebData(
+                                webGLCompressionType,
+                                selectedFile,
+                                webDataFile
+                            ) == 1
+                        )
+                            goto ChooseAction;
+                        break;
+                }
+            }
+            else if (selectedFileName.EndsWith("data.br"))
+            {
                 isWebGL = true;
                 webGLCompressionType = WebGLCompressionType.Brotli;
-
-                AnsiConsole.MarkupLineInterpolated(
-                    $"( INFO ) Decompressing [green]{selectedFile}[/]..."
-                );
-                BrotliUtils.DecompressFile(selectedFile, webDataFile);
+                DecompressCompressedWebData(webGLCompressionType, selectedFile, webDataFile);
             }
-            else if (Utility.ValidateFile(selectedFile, gzipMagic))
+            else if (selectedFileName.EndsWith("data.gz"))
             {
-                AnsiConsole.MarkupLine("( INFO ) [green]UnityWebData GZip[/] file selected.");
                 isWebGL = true;
                 webGLCompressionType = WebGLCompressionType.GZip;
-
-                AnsiConsole.MarkupLineInterpolated(
-                    $"( INFO ) Decompressing [green]{selectedFile}[/]..."
-                );
-                GZipUtils.DecompressFile(selectedFile, webDataFile);
+                DecompressCompressedWebData(webGLCompressionType, selectedFile, webDataFile);
             }
             else
             {
-                AnsiConsole.MarkupLine("[red]( ERROR )[/] Unknown/Unsupported file type!");
+                AnsiConsole.MarkupLine("[red]( RAWR )[/] Unknown/Unsupported file type!");
                 Console.WriteLine();
                 goto ChooseAction;
             }
@@ -263,7 +184,7 @@ namespace USSR.Core
                 // Determine the asset type
                 if (inspectedFile.Contains("globalgamemanagers"))
                     assetType = AssetTypes.Asset;
-                else if (inspectedFile.Contains("unity3d"))
+                else if (inspectedFile.EndsWith(".unity3d"))
                     assetType = AssetTypes.Bundle;
             }
 
@@ -305,7 +226,7 @@ namespace USSR.Core
             catch (Exception ex)
             {
                 AnsiConsole.MarkupLineInterpolated(
-                    $"[red]( ERROR )[/] Error when loading asset class types database! {ex.Message}"
+                    $"[red]( RAWR )[/] Error when loading asset class types database! {ex.Message}"
                 );
                 goto Cleanup;
             }
@@ -350,6 +271,9 @@ namespace USSR.Core
             {
                 if (isWebGL && assetsReplacer != null)
                 {
+                    AnsiConsole.MarkupLineInterpolated(
+                        $"( INFO ) Packing [green]{unpackedWebDataDirectory}[/]..."
+                    );
                     switch (webGLCompressionType)
                     {
                         case WebGLCompressionType.Brotli:
@@ -359,10 +283,6 @@ namespace USSR.Core
                                 $"( INFO ) Compressing [green]{webDataFile}[/] using Brotli compression. Please be patient, it might take some time..."
                             );
                             BrotliUtils.CompressFile(webDataFile, selectedFile);
-                            // BrotliUtils.WriteUnityIdentifier(selectedFile, unityBrotliMagic);
-
-                            if (File.Exists(webDataFile))
-                                File.Delete(webDataFile);
                             break;
                         case WebGLCompressionType.GZip:
                             UnityWebTool.Pack(unpackedWebDataDirectory, webDataFile);
@@ -371,9 +291,6 @@ namespace USSR.Core
                                 $"( INFO ) Compressing [green]{webDataFile}[/] using GZip compression. Please be patient, it might take some time..."
                             );
                             GZipUtils.CompressFile(webDataFile, selectedFile);
-
-                            if (File.Exists(webDataFile))
-                                File.Delete(webDataFile);
                             break;
                         case WebGLCompressionType.None:
                         default:
@@ -385,13 +302,25 @@ namespace USSR.Core
             catch (Exception ex)
             {
                 AnsiConsole.MarkupLineInterpolated(
-                    $"[red]( ERROR )[/] Error when compressing Unity Web Data! {ex.Message}"
+                    $"[red]( RAWR )[/] Error when compressing Unity Web Data! {ex.Message}"
                 );
             }
             finally
             {
-                if (Directory.Exists(unpackedWebDataDirectory))
-                    Directory.Delete(unpackedWebDataDirectory, true);
+                if (isWebGL)
+                {
+                    try
+                    {
+                        if (Directory.Exists(unpackedWebDataDirectory))
+                            Directory.Delete(unpackedWebDataDirectory, true);
+                        if (
+                            !webGLCompressionType.Equals(WebGLCompressionType.None)
+                            && File.Exists(webDataFile)
+                        )
+                            File.Delete(webDataFile);
+                    }
+                    catch { }
+                }
             }
 
             Console.WriteLine();
@@ -421,7 +350,7 @@ namespace USSR.Core
                 "Select the Action, find and choose one of these files in you game data:"
             );
             AnsiConsole.MarkupLine(
-                "[green]globalgamemanagers[/] | [green]data.unity3d[/] | [green]<game_name>.data[/] | [green]<game_name>.data.br[/] | [green]<game_name>.data.gz[/]"
+                "[green]globalgamemanagers[/] | [green]data.unity3d[/] | [green]<game_name>.data[/] | [green]<game_name>.data.br[/] | [green]<game_name>.data.gz[/] | [green]<game_name>.data.unityweb[/]"
             );
         }
 
@@ -439,13 +368,13 @@ namespace USSR.Core
                 catch (Exception ex)
                 {
                     AnsiConsole.MarkupLine(
-                        $"[red]( ERROR )[/] Error when loading class types package! {ex.Message}"
+                        $"[red]( RAWR )[/] Error when loading class types package! {ex.Message}"
                     );
                 }
             }
             else
                 AnsiConsole.MarkupLineInterpolated(
-                    $"[red]( ERROR )[/] TPK file not found: [red]{tpkFile}[/]..."
+                    $"[red]( RAWR )[/] TPK file not found: [red]{tpkFile}[/]..."
                 );
         }
 
@@ -473,14 +402,14 @@ namespace USSR.Core
                 catch (Exception ex)
                 {
                     AnsiConsole.MarkupLineInterpolated(
-                        $"[red]( ERROR )[/] Error when loading asset file! {ex.Message}"
+                        $"[red]( RAWR )[/] Error when loading asset file! {ex.Message}"
                     );
                 }
             }
             else
             {
                 AnsiConsole.MarkupLineInterpolated(
-                    $"[red]( ERROR )[/] Asset file not found: [red]{assetFile}[/]"
+                    $"[red]( RAWR )[/] Asset file not found: [red]{assetFile}[/]"
                 );
             }
 
@@ -518,14 +447,14 @@ namespace USSR.Core
                 catch (Exception ex)
                 {
                     AnsiConsole.MarkupLineInterpolated(
-                        $"[red]( ERROR )[/] Error when loading asset file! {ex.Message}"
+                        $"[red]( RAWR )[/] Error when loading asset file! {ex.Message}"
                     );
                 }
             }
             else
             {
                 AnsiConsole.MarkupLineInterpolated(
-                    $"[red]( ERROR )[/] Asset file not found: [red]{assetFile}[/]"
+                    $"[red]( RAWR )[/] Asset file not found: [red]{assetFile}[/]"
                 );
             }
 
@@ -558,14 +487,14 @@ namespace USSR.Core
                 catch (Exception ex)
                 {
                     AnsiConsole.MarkupLineInterpolated(
-                        $"[red]( ERROR )[/] Error when loading bundle file! {ex.Message}"
+                        $"[red]( RAWR )[/] Error when loading bundle file! {ex.Message}"
                     );
                 }
             }
             else
             {
                 AnsiConsole.MarkupLineInterpolated(
-                    $"[red]( ERROR )[/] Bundle file not found: [red]{bundleFile}[/]"
+                    $"[red]( RAWR )[/] Bundle file not found: [red]{bundleFile}[/]"
                 );
             }
 
@@ -602,10 +531,10 @@ namespace USSR.Core
                 if (playerSettingsBase == null)
                 {
                     AnsiConsole.MarkupLine(
-                        "[red]( ERROR )[/] Can\'t get Player Settings fields! It\'s possible that this current version of Unity are currently not supported yet."
+                        "[red]( RAWR )[/] Can\'t get Player Settings fields! It\'s possible that this current version of Unity are currently not supported yet."
                     );
                     AnsiConsole.MarkupLine(
-                        "Try updating USSR [bold green]classdata.tpk[/] from there: [link green]https://nightly.link/AssetRipper/Tpk/workflows/type_tree_tpk/master/uncompressed_file.zip[/] and try again."
+                        "Try updating USSR [bold green]classdata.tpk[/] manually from there: [link green]https://nightly.link/AssetRipper/Tpk/workflows/type_tree_tpk/master/uncompressed_file.zip[/] and try again."
                     );
                     AnsiConsole.MarkupLine(
                         "If the issue still persist, try switching to another Unity version."
@@ -621,7 +550,7 @@ namespace USSR.Core
                 if (hasProVersion && !showUnityLogo)
                 {
                     AnsiConsole.MarkupLine(
-                        "[yellow]( WARN ) Unity splash screen have been removed![/]"
+                        "[yellow]( WARN ) Unity splash screen already removed![/]"
                     );
                     return null;
                 }
@@ -640,7 +569,7 @@ namespace USSR.Core
                 {
                     case 0:
                         AnsiConsole.MarkupLine(
-                            "[yellow]Did you set the splash screen [bold]Draw Mode[/] to [bold]Unity Logo Below[/]? That\'s useless..[/]"
+                            "[yellow]( WARN ) Nothing to do. Finally, taking a rest :)[/]"
                         );
                         return null;
                     case 1:
@@ -649,7 +578,7 @@ namespace USSR.Core
                 }
 
                 AnsiConsole.MarkupLine(
-                    "What order are Unity splash screen logo in your Player Settings? (Start from 0)"
+                    "What order are Unity splash screen logo in your Player Settings? (Start from 0 [upmost])"
                 );
 
                 InputLogoIndex:
@@ -663,14 +592,14 @@ namespace USSR.Core
                 if (splashScreenIndex < 0 && splashScreenIndex >= totalSplashScreen)
                 {
                     AnsiConsole.MarkupLineInterpolated(
-                        $"[red]( ERROR )[/] There's no splash screen at index [red]{splashScreenIndex}[/]! Try again."
+                        $"[red]( RAWR )[/] There's no splash screen at index [red]{splashScreenIndex}[/]! Try again."
                     );
                     goto InputLogoIndex;
                 }
 
                 RemoveSplashScreen:
                 AnsiConsole.MarkupLineInterpolated(
-                    $"( INFO ) Set [green]hasProVersion = {!hasProVersion}[/] | [green]m_ShowUnitySplashLogo = {!showUnityLogo}[/]"
+                    $"( INFO ) Set [green]hasProVersion[/] = [green]{!hasProVersion}[/] | [green]m_ShowUnitySplashLogo[/] = [green]{!showUnityLogo}[/]"
                 );
 
                 // Remove Unity splash screen by flipping these boolean fields
@@ -678,7 +607,7 @@ namespace USSR.Core
                 playerSettingsBase["m_ShowUnitySplashLogo"].AsBool = !showUnityLogo; // false
 
                 AnsiConsole.MarkupLineInterpolated(
-                    $"( INFO ) [green]Removed splash screen at index {splashScreenIndex}.[/]"
+                    $"( INFO ) [green]Splash screen removed at index {splashScreenIndex}.[/]"
                 );
 
                 splashScreenLogos?.Children.RemoveAt(splashScreenIndex);
@@ -700,7 +629,7 @@ namespace USSR.Core
             catch (Exception ex)
             {
                 AnsiConsole.MarkupLineInterpolated(
-                    $"[red]( ERROR )[/] Error when removing the splash screen! {ex.Message}"
+                    $"[red]( RAWR )[/] Error when removing the splash screen! {ex.Message}"
                 );
                 return null;
             }
@@ -752,7 +681,7 @@ namespace USSR.Core
             catch (Exception ex)
             {
                 AnsiConsole.MarkupLineInterpolated(
-                    $"[red]( ERROR )[/] Error when removing the watermark! {ex.Message}"
+                    $"[red]( RAWR )[/] Error when removing the watermark! {ex.Message}"
                 );
                 return null;
             }
@@ -824,13 +753,65 @@ namespace USSR.Core
             catch (Exception ex)
             {
                 AnsiConsole.MarkupLineInterpolated(
-                    $"[red]( ERROR )[/] Error when writing changes! {ex.Message}"
+                    $"[red]( RAWR )[/] Error when writing changes! {ex.Message}"
                 );
             }
             finally
             {
                 if (File.Exists(uncompressedBundleFile))
                     File.Delete(uncompressedBundleFile);
+            }
+        }
+
+        static int DecompressCompressedWebData(
+            WebGLCompressionType compressionType,
+            string inputPath,
+            string outputPath
+        )
+        {
+            switch (compressionType)
+            {
+                case WebGLCompressionType.Brotli:
+                    try
+                    {
+                        AnsiConsole.MarkupLineInterpolated(
+                            $"( INFO ) Decompressing Brotli [green]{inputPath}[/]..."
+                        );
+                        BrotliUtils.DecompressFile(inputPath, outputPath);
+                        return 0;
+                    }
+                    catch (Exception ex)
+                    {
+                        AnsiConsole.MarkupLineInterpolated(
+                            $"[red]( RAWR ) Failed to decompress {inputPath}![/] {ex.Message} Try choose different compression type."
+                        );
+                        Console.WriteLine();
+                        if (File.Exists(outputPath))
+                            File.Delete(outputPath);
+                        return 1;
+                    }
+                case WebGLCompressionType.GZip:
+                    try
+                    {
+                        AnsiConsole.MarkupLineInterpolated(
+                            $"( INFO ) Decompressing GZip [green]{inputPath}[/]..."
+                        );
+                        GZipUtils.DecompressFile(inputPath, outputPath);
+                        return 0;
+                    }
+                    catch (Exception ex)
+                    {
+                        AnsiConsole.MarkupLineInterpolated(
+                            $"[red]( RAWR ) Failed to decompress {inputPath}![/] {ex.Message} Try choose different compression type."
+                        );
+                        Console.WriteLine();
+                        if (File.Exists(outputPath))
+                            File.Delete(outputPath);
+                        return 1;
+                    }
+                case WebGLCompressionType.None:
+                default:
+                    return 1;
             }
         }
     }
