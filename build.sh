@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION="1.1.6"
+VERSION="1.1.7"
 
 echo "Building USSR..."
 # Define the target operating systems and architectures
