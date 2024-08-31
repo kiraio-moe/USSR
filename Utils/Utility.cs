@@ -5,6 +5,7 @@ namespace USSR.Utilities
     internal class Utility
     {
         const string LAST_OPEN_FILE = "last_open.txt";
+        const string VERSION_FILE = "version.txt";
 
         /// <summary>
         /// Check the file signature if it's a valid file.
@@ -168,6 +169,15 @@ namespace USSR.Utilities
             }
 
             return lastOpenedDirectory;
+        }
+
+        internal static string? GetVersion()
+        {
+            if (!File.Exists(VERSION_FILE))
+                return "UNKNOWN";
+
+            using StreamReader reader = new(VERSION_FILE);
+            return reader.ReadLine();
         }
     }
 }

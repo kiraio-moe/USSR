@@ -39,7 +39,7 @@ The tool is an implementation of the guide available at <https://github.com/kira
 
 ## Requirements
 
-- [.NET 6.0 SDK](https://dotnet.microsoft.com/download/dotnet/6.0 ".NET 6.0 SDK") or [.NET 7.0 SDK](https://dotnet.microsoft.com/download/dotnet/7.0 ".NET 7.0 SDK") or [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0 ".NET 8.0 SDK")
+- [.NET 6.0 SDK](https://dotnet.microsoft.com/download/dotnet/6.0 ".NET 6.0 SDK") or [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0 ".NET 8.0 SDK")
 - Splash screen `Draw Mode` have been set to `All Sequential` in `Player Settings`.
 
 ## Usages
