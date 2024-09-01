@@ -24,15 +24,14 @@ namespace USSR.Core
                 Console.WriteLine();
 
                 string? ussrExec = Path.GetDirectoryName(AppContext.BaseDirectory);
-                int choiceIndex = GetChoice();
+                string[] menuList = { "Remove Unity Splash Screen", "Remove Watermark", "Exit" };
+                int choiceIndex = GetPromptChoice(menuList);
                 if (choiceIndex == 2)
                     return;
                 string? selectedFile = OpenFilePicker();
 
                 if (selectedFile == null)
-                {
                     continue; // Prompt for action again
-                }
 
                 AnsiConsole.MarkupLineInterpolated(
                     $"( INFO ) Selected file: [green]{selectedFile}[/]"
@@ -45,8 +44,14 @@ namespace USSR.Core
                 );
                 string? unpackedWebDataDirectory = string.Empty;
                 bool isWebGL = false;
+                WebCompressionTypes webCompressionType = WebCompressionTypes.None;
 
-                AssetTypes assetType = GetAssetType(selectedFile, ref webDataFile, ref isWebGL);
+                AssetTypes assetType = GetAssetType(
+                    selectedFile,
+                    ref webDataFile,
+                    ref isWebGL,
+                    ref webCompressionType
+                );
                 if (assetType == AssetTypes.Unknown)
                 {
                     AnsiConsole.MarkupLine("[red]( ERR! )[/] Unknown/Unsupported file type!");
@@ -57,9 +62,7 @@ namespace USSR.Core
                 AssetsManager assetsManager = new();
                 string? tpkFile = Path.Combine(ussrExec ?? string.Empty, ASSET_CLASS_DB);
                 if (!LoadClassPackage(assetsManager, tpkFile))
-                {
                     continue; // Prompt for action again
-                }
 
                 List<string> temporaryFiles = new();
                 string inspectedFile = selectedFile;
@@ -68,7 +71,12 @@ namespace USSR.Core
                 {
                     unpackedWebDataDirectory = UnityWebTool.Unpack(webDataFile);
                     inspectedFile = Utility.FindRequiredAsset(unpackedWebDataDirectory);
-                    assetType = GetAssetType(inspectedFile, ref webDataFile, ref isWebGL);
+                    assetType = GetAssetType(
+                        inspectedFile,
+                        ref webDataFile,
+                        ref isWebGL,
+                        ref webCompressionType
+                    );
                 }
 
                 AssetsFileInstance? assetFileInstance = null;
@@ -156,6 +164,72 @@ namespace USSR.Core
                     isWebGL
                 );
 
+                // After writing the changes and cleaning the temporary files,
+                // it's time to pack the extracted WebData.
+                try
+                {
+                    if (isWebGL)
+                    {
+                        AnsiConsole.MarkupLineInterpolated(
+                            $"( INFO ) Packing [green]{unpackedWebDataDirectory}[/]..."
+                        );
+                        switch (webCompressionType)
+                        {
+                            case WebCompressionTypes.Brotli:
+                            case WebCompressionTypes.GZip:
+                                UnityWebTool.Pack(unpackedWebDataDirectory, webDataFile);
+                                break;
+                            case WebCompressionTypes.None:
+                            default:
+                                UnityWebTool.Pack(unpackedWebDataDirectory, selectedFile);
+                                break;
+                        }
+
+                        AnsiConsole.MarkupLineInterpolated(
+                            $"( INFO ) Compressing [green]{webDataFile}[/] using {webCompressionType} compression. Please be patient, it might take some time..."
+                        );
+                        switch (webCompressionType)
+                        {
+                            case WebCompressionTypes.Brotli:
+                                BrotliUtils.CompressFile(webDataFile, selectedFile);
+                                break;
+                            case WebCompressionTypes.GZip:
+                                GZipUtils.CompressFile(webDataFile, selectedFile);
+                                break;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AnsiConsole.MarkupLineInterpolated(
+                        $"[red]( ERR! )[/] Error compressing Unity Web Data!"
+                    );
+                    AnsiConsole.WriteException(ex);
+                }
+                finally
+                {
+                    if (isWebGL)
+                    {
+                        try
+                        {
+                            if (Directory.Exists(unpackedWebDataDirectory))
+                                Directory.Delete(unpackedWebDataDirectory, true);
+                            if (
+                                !webCompressionType.Equals(WebCompressionTypes.None)
+                                && File.Exists(webDataFile)
+                            )
+                                File.Delete(webDataFile);
+                        }
+                        catch (Exception ex)
+                        {
+                            AnsiConsole.MarkupLine(
+                                "[red]( ERR! )[/] Error running post-cleaning temporary files!"
+                            );
+                            AnsiConsole.WriteException(ex);
+                        }
+                    }
+                }
+
                 AnsiConsole.WriteLine();
                 AnsiConsole.MarkupLine("Press any key to continue...");
                 Console.ReadKey();
@@ -163,10 +237,18 @@ namespace USSR.Core
             }
         }
 
+        /// <summary>
+        /// Get the type of the specified asset file.
+        /// </summary>
+        /// <param name="selectedFile"></param>
+        /// <param name="webDataFile"></param>
+        /// <param name="isWebGL"></param>
+        /// <returns></returns>
         static AssetTypes GetAssetType(
             string selectedFile,
             ref string webDataFile,
-            ref bool isWebGL
+            ref bool isWebGL,
+            ref WebCompressionTypes webCompressionTypes
         )
         {
             string selectedFileName = Path.GetFileName(selectedFile);
@@ -183,8 +265,8 @@ namespace USSR.Core
             if (selectedFileName.EndsWith("data.unityweb"))
             {
                 isWebGL = true;
-                WebCompressionTypes webCompressionType = GetCompression();
-                if (!DecompressWebData(webCompressionType, selectedFile, webDataFile))
+                webCompressionTypes = GetCompression();
+                if (!DecompressWebData(webCompressionTypes, selectedFile, webDataFile))
                     return AssetTypes.Unknown;
                 return AssetTypes.Asset;
             }
@@ -203,6 +285,15 @@ namespace USSR.Core
             return AssetTypes.Unknown;
         }
 
+        /// <summary>
+        /// Clean up memory and temporary files.
+        /// </summary>
+        /// <param name="temporaryFiles"></param>
+        /// <param name="bundleStream"></param>
+        /// <param name="assetsManager"></param>
+        /// <param name="unpackedWebDataDirectory"></param>
+        /// <param name="webDataFile"></param>
+        /// <param name="isWebGL"></param>
         static void Cleanup(
             List<string> temporaryFiles,
             FileStream? bundleStream,
@@ -216,23 +307,26 @@ namespace USSR.Core
             assetsManager?.UnloadAll(true);
             Utility.CleanUp(temporaryFiles);
 
-            if (isWebGL)
-            {
-                try
-                {
-                    if (Directory.Exists(unpackedWebDataDirectory))
-                        Directory.Delete(unpackedWebDataDirectory, true);
-                    if (File.Exists(webDataFile))
-                        File.Delete(webDataFile);
-                }
-                catch (Exception ex)
-                {
-                    AnsiConsole.MarkupLine("[red]( ERR! )[/] Error cleaning up temporary files!");
-                    AnsiConsole.WriteException(ex);
-                }
-            }
+            // if (isWebGL)
+            // {
+            //     try
+            //     {
+            //         if (Directory.Exists(unpackedWebDataDirectory))
+            //             Directory.Delete(unpackedWebDataDirectory, true);
+            //         if (File.Exists(webDataFile))
+            //             File.Delete(webDataFile);
+            //     }
+            //     catch (Exception ex)
+            //     {
+            //         AnsiConsole.MarkupLine("[red]( ERR! )[/] Error cleaning up temporary files!");
+            //         AnsiConsole.WriteException(ex);
+            //     }
+            // }
         }
 
+        /// <summary>
+        /// Help message.
+        /// </summary>
         static void PrintHelp()
         {
             AnsiConsole.MarkupLineInterpolated(
@@ -257,9 +351,12 @@ namespace USSR.Core
             Console.WriteLine();
         }
 
-        static int GetChoice()
+        /// <summary>
+        /// Get selected prompt menu.
+        /// </summary>
+        /// <returns></returns>
+        static int GetPromptChoice(string[] menuList)
         {
-            string[] menuList = { "Remove Unity Splash Screen", "Remove Watermark", "Exit" };
             string actionPrompt = AnsiConsole.Prompt(
                 new SelectionPrompt<string>()
                     .Title("What would you like to do? (Press ENTER to go, UP/DOWN to select)")
@@ -268,6 +365,10 @@ namespace USSR.Core
             return Array.FindIndex(menuList, item => item == actionPrompt);
         }
 
+        /// <summary>
+        /// Get asset compression type.
+        /// </summary>
+        /// <returns></returns>
         static WebCompressionTypes GetCompression()
         {
             string[] compressionList = { "Brotli", "GZip" };
@@ -289,6 +390,10 @@ namespace USSR.Core
             };
         }
 
+        /// <summary>
+        /// Open file picker dialog.
+        /// </summary>
+        /// <returns>Selected file path.</returns>
         static string OpenFilePicker()
         {
             AnsiConsole.MarkupLine("Opening File Picker...");
@@ -308,11 +413,16 @@ namespace USSR.Core
             }
 
             Console.WriteLine();
-            Console.Clear();
 
             return filePicker.Path;
         }
 
+        /// <summary>
+        /// Load Class Types package (.tpk) file.
+        /// </summary>
+        /// <param name="assetsManager"></param>
+        /// <param name="tpkFile"></param>
+        /// <returns></returns>
         static bool LoadClassPackage(AssetsManager assetsManager, string tpkFile)
         {
             if (File.Exists(tpkFile))
@@ -341,9 +451,10 @@ namespace USSR.Core
         }
 
         /// <summary>
-        /// Load AssetFileInstance.
+        /// Wrapper for LoadAssetsFile.
         /// </summary>
-        /// <param name="sourceFile"></param>
+        /// <param name="assetFile"></param>
+        /// <param name="assetsManager"></param>
         /// <returns></returns>
         static AssetsFileInstance? LoadAssetFileInstance(
             string assetFile,
@@ -379,7 +490,7 @@ namespace USSR.Core
         }
 
         /// <summary>
-        /// Load AssetFileInstance from <paramref name="bundleFileInstance"/>.
+        /// Wrapper for LoadAssetsFileFromBundle.
         /// </summary>
         /// <param name="assetFile"></param>
         /// <param name="assetsManager"></param>
@@ -423,6 +534,13 @@ namespace USSR.Core
             return assetFileInstance;
         }
 
+        /// <summary>
+        /// Wrapper for LoadBundleFile.
+        /// </summary>
+        /// <param name="bundleFile"></param>
+        /// <param name="assetsManager"></param>
+        /// <param name="unpackedBundleFileStream"></param>
+        /// <returns></returns>
         static BundleFileInstance? LoadBundleFileInstance(
             string bundleFile,
             AssetsManager assetsManager,
@@ -463,6 +581,12 @@ namespace USSR.Core
             return bundleFileInstance;
         }
 
+        /// <summary>
+        /// Remove "Made with Unity" splash screen.
+        /// </summary>
+        /// <param name="assetsManager"></param>
+        /// <param name="assetFileInstance"></param>
+        /// <returns></returns>
         static AssetsFile? RemoveSplashScreen(
             AssetsManager assetsManager,
             AssetsFileInstance? assetFileInstance
@@ -521,10 +645,9 @@ namespace USSR.Core
                     "m_SplashScreenLogos.Array"
                 ];
                 int totalSplashScreen = splashScreenLogos.Count();
-                int splashScreenIndex = 0;
 
                 AnsiConsole.MarkupLineInterpolated(
-                    $"( INFO ) There's [green]{totalSplashScreen}[/] splash screen detected."
+                    $"( INFO ) There's [green]{totalSplashScreen}[/] splash screen detected:"
                 );
 
                 if (totalSplashScreen <= 0)
@@ -535,25 +658,33 @@ namespace USSR.Core
 
                 for (int i = 0; i < totalSplashScreen; i++)
                 {
+                    AssetTypeValueField? logoPptr = splashScreenLogos.Children[i].Get(0);
+                    AssetExternal logoExtInfo = assetsManager.GetExtAsset(
+                        assetFileInstance,
+                        logoPptr
+                    );
                     AnsiConsole.MarkupLineInterpolated(
-                        $"[green]{i}[/] => [green]{splashScreenLogos.Children[i].FieldName}[/]"
+                        $"[green]{i + 1}[/] => [green]{(logoExtInfo.baseField != null ? logoExtInfo.baseField["m_Name"].AsString : "UnitySplash-cube")}[/]"
                     );
                 }
 
-                AnsiConsole.MarkupLine("What order are Unity logo in your Player Settings?");
+                AnsiConsole.Markup("Which splash screen you want to remove? ");
 
                 InputLogoIndex:
-                int.TryParse(
-                    Console.ReadLine(),
-                    System.Globalization.NumberStyles.Integer,
-                    null,
-                    out splashScreenIndex
-                );
-
-                if (splashScreenIndex < 0 && splashScreenIndex >= totalSplashScreen)
+                string? logoIndex = Console.ReadLine();
+                if (
+                    !int.TryParse(
+                        logoIndex,
+                        System.Globalization.NumberStyles.Integer,
+                        null,
+                        out int splashScreenIndex
+                    )
+                    || splashScreenIndex <= 0
+                    || splashScreenIndex > totalSplashScreen
+                )
                 {
                     AnsiConsole.MarkupLineInterpolated(
-                        $"[red]( ERR! )[/] There's no splash screen at index [red]{splashScreenIndex}[/]! Try again."
+                        $"[red]( ERR! )[/] There's no splash screen at order [red]{logoIndex}[/]! Try again."
                     );
                     goto InputLogoIndex;
                 }
@@ -563,15 +694,14 @@ namespace USSR.Core
                     $"( INFO ) Set [green]hasProVersion[/] = [green]{!hasProVersion}[/] | [green]m_ShowUnitySplashLogo[/] = [green]{!showUnityLogo}[/]"
                 );
 
-                // Remove Unity splash screen by flipping these boolean fields
                 buildSettingsBase["hasPROVersion"].AsBool = !hasProVersion; // true
                 playerSettingsBase["m_ShowUnitySplashLogo"].AsBool = !showUnityLogo; // false
 
                 AnsiConsole.MarkupLineInterpolated(
-                    $"( INFO ) [green]Splash screen removed at index {splashScreenIndex}.[/]"
+                    $"[green]( INFO ) Splash screen removed at order {splashScreenIndex}.[/]"
                 );
 
-                splashScreenLogos?.Children.RemoveAt(splashScreenIndex);
+                splashScreenLogos?.Children.RemoveAt(splashScreenIndex - 1);
                 playerSettingsInfo?[0].SetNewData(playerSettingsBase);
                 buildSettingsInfo?[0].SetNewData(buildSettingsBase);
 
@@ -586,6 +716,12 @@ namespace USSR.Core
             }
         }
 
+        /// <summary>
+        /// Remove watermark text on the bottom right corner.
+        /// </summary>
+        /// <param name="assetsManager"></param>
+        /// <param name="assetFileInstance"></param>
+        /// <returns></returns>
         static AssetsFile? RemoveWatermark(
             AssetsManager assetsManager,
             AssetsFileInstance? assetFileInstance
@@ -632,6 +768,18 @@ namespace USSR.Core
             }
         }
 
+        // static AssetsFile? RemoveUnitySplashCube(AssetsManager assetsManager, AssetsFileInstance? assetsFileInstance)
+        // {
+
+        // }
+
+        /// <summary>
+        /// Write assets changes to disk.
+        /// </summary>
+        /// <param name="modifiedFile"></param>
+        /// <param name="assetType"></param>
+        /// <param name="assetFileInstance"></param>
+        /// <param name="bundleFileInstance"></param>
         static void WriteChanges(
             string modifiedFile,
             AssetTypes assetType,
@@ -657,31 +805,24 @@ namespace USSR.Core
                     }
                     case AssetTypes.Bundle:
                     {
-                        List<ContentReplacerFromAssets> bundleReplacer =
-                            new() { new ContentReplacerFromAssets(assetFileInstance?.file) };
-
                         // Write modified assets to uncompressed asset bundle
+                        bundleFileInstance
+                            ?.file.BlockAndDirInfo.DirectoryInfos[0]
+                            .SetNewData(assetFileInstance?.file);
                         using (AssetsFileWriter writer = new(uncompressedBundleFile))
                             bundleFileInstance?.file.Write(writer);
 
                         AnsiConsole.MarkupLineInterpolated(
                             $"( INFO ) Compressing [green]{modifiedFile}[/]..."
                         );
-                        using (
-                            FileStream uncompressedBundleStream = File.OpenRead(
-                                uncompressedBundleFile
-                            )
-                        )
-                        {
-                            AssetBundleFile uncompressedBundle = new();
-                            uncompressedBundle.Read(new AssetsFileReader(uncompressedBundleStream));
+                        using FileStream uncompressedBundleStream = File.OpenRead(
+                            uncompressedBundleFile
+                        );
+                        AssetBundleFile uncompressedBundle = new();
+                        uncompressedBundle.Read(new AssetsFileReader(uncompressedBundleStream));
 
-                            using AssetsFileWriter uncompressedWriter = new(modifiedFile);
-                            uncompressedBundle.Pack(
-                                uncompressedWriter,
-                                AssetBundleCompressionType.LZ4
-                            );
-                        }
+                        using AssetsFileWriter uncompressedWriter = new(modifiedFile);
+                        uncompressedBundle.Pack(uncompressedWriter, AssetBundleCompressionType.LZ4);
                         break;
                     }
                 }
@@ -699,6 +840,13 @@ namespace USSR.Core
             }
         }
 
+        /// <summary>
+        /// Decompress archived web data.
+        /// </summary>
+        /// <param name="compressionType"></param>
+        /// <param name="inputPath"></param>
+        /// <param name="outputPath"></param>
+        /// <returns></returns>
         static bool DecompressWebData(
             WebCompressionTypes compressionType,
             string inputPath,
