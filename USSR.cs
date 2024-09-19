@@ -1,7 +1,7 @@
 ﻿using AssetsTools.NET;
 using AssetsTools.NET.Extra;
 using Kiraio.UnityWebTools;
-using NativeFileDialogSharp;
+using NativeFileDialogs.Net;
 using Spectre.Console;
 using USSR.Enums;
 using USSR.Utilities;
@@ -394,27 +394,43 @@ namespace USSR.Core
         /// Open file picker dialog.
         /// </summary>
         /// <returns>Selected file path.</returns>
-        static string OpenFilePicker()
+        static string? OpenFilePicker()
         {
-            AnsiConsole.MarkupLine("Opening File Picker...");
-
-            DialogResult filePicker = Dialog.FileOpen(
-                null,
-                Path.GetDirectoryName(Utility.GetLastOpenedFile())
-            );
-
-            if (filePicker.IsCancelled)
-                AnsiConsole.MarkupLine("( INFO ) Cancelled.");
-            else if (filePicker.IsError)
+            try
             {
-                AnsiConsole.MarkupLine(
-                    "[red]( ERR! )[/] Unable to open File Picker! Try using a different Terminal?"
+                AnsiConsole.MarkupLine("Opening File Picker...");
+
+                NfdStatus filePicker = Nfd.OpenDialog(
+                    out string? path,
+                    new Dictionary<string, string>()
+                    {
+                        {
+                            "Unity Files",
+                            "globalgamemanagers,unity3d,data,data.br,data.gz,data.unityweb"
+                        },
+                    },
+                    Path.GetDirectoryName(Utility.GetLastOpenedFile())
                 );
+
+                switch (filePicker)
+                {
+                    case NfdStatus.Cancelled:
+                        AnsiConsole.MarkupLine("Cancelled.");
+                        Console.Clear();
+                        return string.Empty;
+                    case NfdStatus.Ok:
+                        return path ?? string.Empty;
+                    default:
+                        return string.Empty;
+                }
             }
-
-            Console.WriteLine();
-
-            return filePicker.Path;
+            catch (NfdException ex)
+            {
+                AnsiConsole.MarkupLineInterpolated(
+                    $"[red]( ERR! )[/] Unable to open File Picker! Try using a different Terminal?\n{ex.Message}"
+                );
+                return string.Empty;
+            }
         }
 
         /// <summary>
